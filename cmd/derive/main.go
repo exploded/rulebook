@@ -224,11 +224,45 @@ func analyseText(ctx context.Context, tx *sql.Tx) (acts, penalties int, err erro
 	}
 
 	q := db.New(tx)
-	var cur *db.ActText
+	type tabled struct {
+		db.InsertPenaltyParams
+		table bool // from a table of penalties
+	}
+	var (
+		cur  *db.ActText
+		pens []tabled // the Act's, written at flush
+	)
 	flush := func() error {
 		if cur == nil {
 			return nil
 		}
+		// A provision with a penalty at its foot may also be in a table of
+		// penalties (s 641A of the Corporations Act is in the s 1317E list
+		// of civil penalty provisions): count it once.
+		footed := map[string]bool{}
+		for _, pen := range pens {
+			if !pen.table {
+				footed[fmt.Sprint(pen.Civil, pen.Number)] = true
+			}
+		}
+		for _, pen := range pens {
+			if section, _, _ := strings.Cut(pen.Number, "("); pen.table && footed[fmt.Sprint(pen.Civil, section)] {
+				continue
+			}
+			if err := q.InsertPenalty(ctx, pen.InsertPenaltyParams); err != nil {
+				return err
+			}
+			penalties++
+			if pen.Civil == 1 {
+				cur.CivilPenalties++
+				continue
+			}
+			cur.Offences++
+			cur.Life += pen.Life
+			cur.MaxMonths = max(cur.MaxMonths, pen.Months)
+			cur.MaxUnits = max(cur.MaxUnits, pen.Units)
+		}
+		pens = pens[:0]
 		acts++
 		return q.InsertActText(ctx, db.InsertActTextParams(*cur))
 	}
@@ -245,21 +279,15 @@ func analyseText(ctx context.Context, tx *sql.Tx) (acts, penalties int, err erro
 		cur.Words += p.words
 		c := analysis.Analyse(strings.Split(p.body, "\n"))
 		for _, pen := range c.Penalties {
-			if err := q.InsertPenalty(ctx, db.InsertPenaltyParams{
-				TitleID: p.id, Seq: p.seq, Number: p.number, Civil: b2i(pen.Civil), Text: pen.Text,
+			number := p.number
+			if pen.Provision != "" {
+				// A table of penalties names its provisions.
+				number = pen.Provision
+			}
+			pens = append(pens, tabled{db.InsertPenaltyParams{
+				TitleID: p.id, Seq: p.seq, Number: number, Civil: b2i(pen.Civil), Text: pen.Text,
 				Life: b2i(pen.Life), Months: int64(pen.Months), Units: int64(pen.Units),
-			}); err != nil {
-				return 0, 0, err
-			}
-			penalties++
-			if pen.Civil {
-				cur.CivilPenalties++
-				continue
-			}
-			cur.Offences++
-			cur.Life += b2i(pen.Life)
-			cur.MaxMonths = max(cur.MaxMonths, int64(pen.Months))
-			cur.MaxUnits = max(cur.MaxUnits, int64(pen.Units))
+			}, pen.Provision != ""})
 		}
 		cur.StrictSections += b2i(c.StrictLiability > 0)
 		cur.AbsoluteSections += b2i(c.AbsoluteLiability > 0)

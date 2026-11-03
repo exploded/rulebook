@@ -144,6 +144,30 @@ pause, at one request an Act. Notes on the EPUBs:
   principal Acts in force in November 2026. They load no sections.
 - Check: on 4 November 2026, 1,250 of 1,262 Acts gave exactly as many
   sections and clauses as their contents list.
+- A table row is one body line, starting with a tab, with its cells
+  separated by tabs (`statute.Cells`).
+
+### Offences and penalties
+
+`cmd/derive` counts offences, civil penalties, strict liability, reversed
+burdens and delegated powers in each Act's text with `internal/analysis`,
+whose package comment defines each count. Most Acts state a penalty at the
+foot of each section or subsection. A few list them in a table instead, and
+these are read too:
+
+- *Corporations Act 2001*: Schedule 3 sets the penalty for each offence
+  (s 1311), and s 1317E lists the civil penalty provisions. Their amounts
+  come from a formula in s 1317G, so they're counted with no size.
+- *Fair Work Act 2009* s 539, and the same table in the *Fair Work
+  (Transitional Provisions and Consequential Amendments) Act 2009*: civil
+  remedy provisions, each with a maximum penalty.
+- *Paid Parental Leave Act 2010* s 146: civil penalty provisions.
+
+A provision both footed and listed counts once. General rules ("A person who
+commits an offence against this Act is punishable … by a penalty not
+exceeding the penalty applicable to the offence") aren't offences. Not
+counted: contraventions that s 1311 of the Corporations Act makes offences
+with no penalty set in Schedule 3.
 
 ### Departments
 

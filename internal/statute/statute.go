@@ -268,8 +268,23 @@ func trimHeading(s string) string {
 
 type para struct{ class, text string }
 
+// TableRow marks a body line that is a row of a table: the line starts with
+// a tab and its cells are separated by tabs, each cell's paragraphs joined
+// by spaces. A row spanning the table, like its title, has one cell.
+const TableRow = "\t"
+
+// Cells returns the cells of a body line that is a table row, or nil.
+func Cells(line string) []string {
+	row, ok := strings.CutPrefix(line, TableRow)
+	if !ok {
+		return nil
+	}
+	return strings.Split(row, "\t")
+}
+
 // paragraphs returns each <p> in the document with its class and its text,
-// whitespace collapsed. Compilations prepared before about 2005 mark
+// whitespace collapsed, and each row of a table as one paragraph of class
+// "Table" (see TableRow). Compilations prepared before about 2005 mark
 // headings as <h1> to <h6> with no class instead; those come back with the
 // style the newer ones use, so <h5> is ActHead5.
 func paragraphs(doc []byte) ([]para, error) {
@@ -279,12 +294,45 @@ func paragraphs(doc []byte) ([]para, error) {
 		depth int // >0 inside a <p>
 		cls   string
 		text  strings.Builder
+		// A table nested in a cell is part of that cell's text.
+		tables int // >0 inside a <table>
+		cells  []string
+		cell   strings.Builder
 	)
 	block := func(name string) bool {
 		return name == "p" || len(name) == 2 && name[0] == 'h' && name[1] >= '1' && name[1] <= '6'
 	}
 	for {
-		switch z.Next() {
+		tt := z.Next()
+		if tables > 0 && tt != html.ErrorToken {
+			n, _ := z.TagName()
+			name := string(n)
+			switch {
+			case tt == html.TextToken:
+				cell.Write(z.Text())
+			case name == "table" && tt == html.StartTagToken:
+				tables++
+			case name == "table" && tt == html.EndTagToken:
+				tables--
+			case tables > 1:
+			case name == "tr" && tt == html.StartTagToken:
+				cells = cells[:0]
+			case (name == "td" || name == "th") && tt == html.StartTagToken:
+				cell.Reset()
+			case (name == "td" || name == "th") && tt == html.EndTagToken:
+				cells = append(cells, clean(cell.String()))
+			case name == "tr" && tt == html.EndTagToken:
+				if strings.Join(cells, "") != "" {
+					out = append(out, para{"Table", TableRow + strings.Join(cells, "\t")})
+				}
+			}
+			if tt != html.TextToken && (block(name) || name == "br") {
+				// Paragraphs and line breaks in a cell ("Column 1<br/>Provision").
+				cell.WriteByte(' ')
+			}
+			continue
+		}
+		switch tt {
 		case html.ErrorToken:
 			if z.Err() == io.EOF {
 				return out, nil
@@ -293,6 +341,10 @@ func paragraphs(doc []byte) ([]para, error) {
 		case html.StartTagToken:
 			n, hasAttr := z.TagName()
 			name := string(n)
+			if name == "table" && depth == 0 {
+				tables = 1
+				continue
+			}
 			if !block(name) {
 				continue
 			}

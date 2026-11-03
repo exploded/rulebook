@@ -165,6 +165,39 @@ func TestParseAmendingSchedule(t *testing.T) {
 	}
 }
 
+// A table row is one body line, so its cells stay together: the Corporations
+// Act's Schedule 3 lists a penalty beside each provision, some running to
+// two paragraphs.
+func TestParseTable(t *testing.T) {
+	ps, err := Parse([]byte(`<p class="ActHead1">Schedule 3—Penalties</p>
+<p class="notetext">Note: See sections 1311 to 1311E.</p>
+<table><thead><tr><td colspan="2"><p class="Tabletext">Penalties</p></td></tr>
+<tr><td><p class="TableHeading">Column 1<br/>Provision</p></td><td><p class="TableHeading">Penalty</p></td></tr></thead>
+<tbody><tr><td><p class="Tabletext">Subsection&#xa0;200B(1)</p></td><td><p class="Tablea">(a) for an individual—6 months imprisonment; and</p><p class="Tablea">(b) for a body corporate—1,800 penalty units</p></td></tr>
+<tr><td><p class="Tabletext">Section 111AU</p></td><td><table><tr><td><p>5 years</p></td></tr></table><p>imprisonment</p></td></tr></tbody></table>
+<p class="subsection">After the table.</p>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ps) != 1 {
+		t.Fatalf("got %d provisions", len(ps))
+	}
+	want := []string{
+		"Note: See sections 1311 to 1311E.",
+		"\tPenalties",
+		"\tColumn 1 Provision\tPenalty",
+		"\tSubsection 200B(1)\t(a) for an individual—6 months imprisonment; and (b) for a body corporate—1,800 penalty units",
+		"\tSection 111AU\t5 years imprisonment",
+		"After the table.",
+	}
+	if got := strings.Join(ps[0].Body, "\n"); got != strings.Join(want, "\n") {
+		t.Errorf("got\n%q\nwant\n%q", ps[0].Body, want)
+	}
+	if c := Cells(ps[0].Body[3]); len(c) != 2 || c[0] != "Subsection 200B(1)" {
+		t.Errorf("Cells = %q", c)
+	}
+}
+
 func TestCriminalCodeNumbers(t *testing.T) {
 	ps, err := Parse([]byte(`<p class="ActHead6">Schedule—The Criminal Code</p>
 <p class="ActHead5">6.1 Strict liability</p><p class="subsection">(1) If a law that creates an offence provides that the offence is an offence of strict liability:</p>`))

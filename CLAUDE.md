@@ -59,6 +59,9 @@ library. Templates and static files are `go:embed`-ed (`web/embed.go`).
   Australian Legal Corpus: the EPUBs are current and keep the Word heading
   styles the parser needs. The corpus (9.4 GB, flat text, to March 2025) is
   still the plan for High Court decisions in M4.
+- 2026-11-04: offence and civil penalty counts read penalty tables too
+  (Corporations Act Sch 3 and s 1317E, Fair Work s 539, Paid Parental Leave
+  s 146), counting each provision a row names once, as footers would.
 - 2026-11-03: an Act administered by several portfolios counts in each, and
   its pages are split equally, so the treemap sums to the pages in force.
 

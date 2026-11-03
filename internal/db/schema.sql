@@ -185,7 +185,7 @@ CREATE TABLE IF NOT EXISTS portfolio_summary (
 CREATE TABLE IF NOT EXISTS penalty (
   title_id   TEXT NOT NULL REFERENCES title(id),
   seq        INTEGER NOT NULL,          -- the provision's seq
-  number     TEXT NOT NULL,             -- its section number
+  number     TEXT NOT NULL,             -- its section number, or the provision a table of penalties names
   civil      INTEGER NOT NULL,          -- 1 for a civil penalty, 0 for an offence
   text       TEXT NOT NULL,
   life       INTEGER NOT NULL,

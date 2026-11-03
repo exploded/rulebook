@@ -1,6 +1,10 @@
 package analysis
 
-import "testing"
+import (
+	"fmt"
+	"strings"
+	"testing"
+)
 
 // Lines are from the Crimes Act 1914, the Privacy Act 1988 and the Income
 // Tax Assessment Act 1997 as compiled in 2026.
@@ -50,6 +54,9 @@ func TestPenaltyOnFollowingLines(t *testing.T) {
 	if p := c.Penalties[0]; p.Months != 6 || p.Units != 300 {
 		t.Errorf("penalty = %+v", p)
 	}
+	if p := c.Penalties[0]; strings.Contains(p.Text, "Another subsection") {
+		t.Errorf("penalty text runs into the next subsection: %q", p.Text)
+	}
 }
 
 // Forms from the Customs Act 1901, the Excise Act 1901, the Crimes Act 1914
@@ -74,6 +81,16 @@ func TestPenaltyForms(t *testing.T) {
 	if c := Analyse([]string{"(3) An offence against this section is punishable upon summary conviction."}); len(c.Penalties) != 0 {
 		t.Errorf("mode of trial counted as a penalty: %+v", c.Penalties)
 	}
+	// General penalty rules, from s 1311A of the Corporations Act 2001 and
+	// s 29 of the Defence (Special Undertakings) Act 1952.
+	for _, l := range []string{
+		"(1) A person who commits an offence against this Act is punishable on conviction by a penalty not exceeding the penalty applicable to the offence.",
+		"(1) An offence against this Act is an indictable offence and, subject to subsections (2) and (3), is punishable on conviction by a penalty not exceeding the penalty specified.",
+	} {
+		if c := Analyse([]string{l}); len(c.Penalties) != 0 {
+			t.Errorf("general penalty rule counted as an offence: %q", l)
+		}
+	}
 	for _, c := range cases {
 		got := Analyse(c.lines)
 		if len(got.Penalties) != 1 {
@@ -90,5 +107,57 @@ func TestLife(t *testing.T) {
 	c := Analyse([]string{"Penalty: Imprisonment for life."})
 	if len(c.Penalties) != 1 || !c.Penalties[0].Life {
 		t.Errorf("penalties = %+v", c.Penalties)
+	}
+}
+
+// Rows are from the Corporations Act 2001's Schedule 3 and s 1317E and the
+// Fair Work Act 2009's s 539, as compiled in 2026.
+func TestPenaltyTables(t *testing.T) {
+	cases := []struct {
+		name  string
+		lines []string
+		want  []string // provision, civil, units, months
+	}{
+		{"schedule 3", []string{
+			"Note: See sections 1311 to 1311E.",
+			"\tPenalties",
+			"\tProvision\tPenalty",
+			"\tSubsections 148(2), (3), (4) and (5)\t30 penalty units",
+			"\tSubsection 200B(1)\t(a) for an individual—6 months imprisonment, 180 penalty units, or both; and (b) for a body corporate—1,800 penalty units",
+			"\tSection 111AU\t5 years imprisonment",
+		}, []string{
+			"148(2) false 30 0", "148(3) false 30 0", "148(4) false 30 0", "148(5) false 30 0",
+			"200B(1) false 1800 6", "111AU false 0 60",
+		}},
+		{"civil penalty provisions", []string{
+			"(a) a provision specified in column 1 of the following table is a civil penalty provision; and",
+			"\tCivil penalty provisions",
+			"\tColumn 1 Provision\tColumn 2 Brief description of the provision\tColumn 3 Categorisation of the provision",
+			"\tsubsections 180(1), 181(1) and (2), 182(1) and (2) and 183(1) and (2)\tofficers’ duties\tcorporation/scheme",
+		}, []string{
+			"180(1) true 0 0", "181(1) true 0 0", "181(2) true 0 0", "182(1) true 0 0",
+			"182(2) true 0 0", "183(1) true 0 0", "183(2) true 0 0",
+		}},
+		{"civil remedy provisions", []string{
+			"\tStanding, jurisdiction and maximum penalties",
+			"\tItem\tColumn 1 Civil remedy provision\tColumn 2 Persons\tColumn 3 Courts\tColumn 4 Maximum penalty",
+			"\tPart 2-1—Core provisions",
+			"\t2\t45 (other than in relation to a contravention of an outworker term (see section 12))\t(a) an employee; (b) an employer\t(a) the Federal Court\tfor a serious contravention—600 penalty units; or otherwise—60 penalty units",
+			"\t3\tsubsection 601FC(1)(a) and (b)\t(a) an inspector\t(a) the Federal Court\t60 penalty units",
+		}, []string{"45 true 600 0", "601FC(1)(a) true 60 0", "601FC(1)(b) true 60 0"}},
+		{"other tables", []string{
+			"\tItem\tColumn 1 Provision\tColumn 2 Time limit",
+			"\t1\tSection 12\t28 days",
+			"Penalty: 10 penalty units.",
+		}, []string{" false 10 0"}},
+	}
+	for _, tc := range cases {
+		var got []string
+		for _, p := range Analyse(tc.lines).Penalties {
+			got = append(got, fmt.Sprintf("%s %t %d %d", p.Provision, p.Civil, p.Units, p.Months))
+		}
+		if strings.Join(got, "\n") != strings.Join(tc.want, "\n") {
+			t.Errorf("%s: got\n%s\nwant\n%s", tc.name, strings.Join(got, "\n"), strings.Join(tc.want, "\n"))
+		}
 	}
 }
