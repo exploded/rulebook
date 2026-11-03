@@ -12,7 +12,7 @@ import (
 // The referendum chart's SVG coordinate space; the CSS scales it to fit.
 const (
 	chartW, chartH                 = 1000.0, 300.0
-	chartL, chartR, chartT, chartB = 40.0, 12.0, 12.0, 28.0
+	chartL, chartR, chartT, chartB = 60.0, 12.0, 12.0, 28.0
 	chartFromYear, chartToYear     = 1900, 2030
 )
 
