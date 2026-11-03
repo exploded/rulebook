@@ -9,6 +9,26 @@ import (
 	"time"
 )
 
+type ActSummary struct {
+	ID            string
+	Name          string
+	Status        string
+	InForce       int64
+	IsPrincipal   int64
+	MakingDate    string
+	EndedOn       string
+	Compilations  int64
+	Pages         sql.NullInt64
+	FirstPages    sql.NullInt64
+	AmendedBy     int64
+	Amends        int64
+	LastChanged   string
+	GovernmentID  sql.NullInt64
+	PrimeMinister string
+	Party         string
+	Side          string
+}
+
 type Amendment struct {
 	TitleID           string
 	CompilationNumber int64
@@ -16,6 +36,16 @@ type Amendment struct {
 	ByTitleID         string
 	ByName            string
 	ByProvisions      string
+}
+
+type Government struct {
+	ID               int64
+	PrimeMinister    string
+	Party            string
+	Side             string
+	StartDate        string
+	EndDate          string
+	SourceDocumentID int64
 }
 
 type LoadRun struct {
@@ -71,6 +101,16 @@ type SourceDocument struct {
 	RetrievedAt time.Time
 }
 
+type StatuteYear struct {
+	Year             int64
+	PrincipalInForce int64
+	AmendingInForce  int64
+	PagesInForce     int64
+	ActsWithPages    int64
+	MadeLabor        int64
+	MadeNonLabor     int64
+}
+
 type Title struct {
 	ID               string
 	Name             string
@@ -82,6 +122,9 @@ type Title struct {
 	Year             sql.NullInt64
 	Number           sql.NullInt64
 	BillUri          string
+	EndedOn          string
+	EndedBy          string
+	EndedByName      string
 	SourceDocumentID int64
 }
 
@@ -92,4 +135,5 @@ type Version struct {
 	StartDate         string
 	EndDate           string
 	IsLatest          int64
+	Pages             sql.NullInt64
 }

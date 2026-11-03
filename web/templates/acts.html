@@ -1,0 +1,47 @@
+{{define "title"}}Acts{{end}}
+{{define "description"}}Every Act of the Commonwealth Parliament since 1901, with its size, age, amendments and the government that made it.{{end}}
+
+{{define "content"}}
+{{template "crumbs" .Crumbs}}
+<p class="kicker">The statute book</p>
+<h1>Acts</h1>
+
+<form class="filters" action="/acts" method="get" hx-get="/acts" hx-trigger="change, input from:#acts-q delay:300ms" hx-target="#results" hx-select="#results" hx-swap="outerHTML" hx-push-url="true">
+  <label class="filter-q"><span>Name contains</span><input id="acts-q" type="search" name="q" value="{{.Filter.Q}}" autocomplete="off"></label>
+  <label><span>Status</span><select name="status">{{range .StatusOptions}}<option value="{{.Value}}"{{if eq .Value $.Filter.Status}} selected{{end}}>{{.Label}}</option>{{end}}</select></label>
+  <label><span>Kind</span><select name="kind">{{range .KindOptions}}<option value="{{.Value}}"{{if eq .Value $.Filter.Kind}} selected{{end}}>{{.Label}}</option>{{end}}</select></label>
+  <label><span>Made under</span><select name="side">{{range .SideOptions}}<option value="{{.Value}}"{{if eq .Value $.Filter.Side}} selected{{end}}>{{.Label}}</option>{{end}}</select></label>
+  <label><span>Sort by</span><select name="sort">{{range .Sorts}}<option value="{{.Value}}"{{if eq .Value $.Filter.Sort}} selected{{end}}>{{.Label}}</option>{{end}}</select></label>
+  <noscript><button type="submit">Show</button></noscript>
+</form>
+
+<div id="results">
+  <div class="pager">
+    <span>{{if .Total}}{{count (int64 .From)}}–{{count (int64 .To)}} of {{count (int64 .Total)}} Acts{{else}}No Acts match{{end}}</span>
+    {{with .PrevURL}}<a href="{{.}}">Previous</a>{{end}}
+    {{with .NextURL}}<a href="{{.}}">Next</a>{{end}}
+    <a class="pager-csv" href="{{.CSVURL}}">Download CSV</a>
+  </div>
+  <div class="scroll">
+  <table class="data acts">
+    <thead><tr><th>Act</th><th>Made</th><th>Government</th><th class="num">Pages</th><th class="num">Amended by</th><th>Last changed</th></tr></thead>
+    <tbody>
+      {{range .Acts}}
+      <tr>
+        <th><a href="/act/{{.ID}}">{{.Name}}</a>{{if eq .IsPrincipal 0}} <span class="badge">Amending</span>{{end}}{{if eq .InForce 0}} <span class="badge">{{.Status}} {{year .EndedOn}}</span>{{end}}</th>
+        <td class="date">{{date .MakingDate}}</td>
+        <td>{{.PrimeMinister}}</td>
+        <td class="num">{{nint .Pages}}</td>
+        <td class="num">{{if .AmendedBy}}{{count .AmendedBy}}{{else}}–{{end}}</td>
+        <td class="date">{{if .LastChanged}}{{year .LastChanged}}{{else}}<span class="muted">never</span>{{end}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  </div>
+  <div class="pager">
+    {{with .PrevURL}}<a href="{{.}}">Previous</a>{{end}}
+    {{with .NextURL}}<a href="{{.}}">Next</a>{{end}}
+  </div>
+</div>
+{{end}}

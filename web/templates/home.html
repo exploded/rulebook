@@ -12,14 +12,25 @@
   <div><dt>Referendums carried</dt><dd>{{.Carried}}</dd></div>
 </dl>
 
+{{if .Statute.Acts}}
+<h2><a href="/statute-book">The statute book</a></h2>
+<dl class="stats">
+  <div><dt>Acts in force</dt><dd>{{count .Statute.InForce}}</dd></div>
+  <div><dt>Pages in force</dt><dd>{{count .Statute.Pages}}</dd></div>
+  <div><dt>Amending Acts still in force</dt><dd>{{count .Statute.Amending}}</dd></div>
+  <div><dt>Acts made since 1901</dt><dd>{{count .Statute.Acts}}</dd></div>
+</dl>
+<p><a href="/statute-book">How the statute book has grown, and who made it</a> · <a href="/acts">Browse every Act</a></p>
+{{end}}
+
 <h2><a href="/constitution">The Constitution</a></h2>
 <p class="muted">Each tile is a section. Select one to read it.</p>
 {{template "cmap" .}}
 
 <h2>Coming next</h2>
 <ul class="roadmap">
-  <li><strong>Every Act of Parliament</strong>: about 13,700 Acts since 1901, 4,800 of them in force, with their size, age, amendments and the government that made them.</li>
-  <li><strong>What the Acts do</strong>: the offences each creates, how many carry strict liability, and the powers it hands to ministers to make further rules.</li>
+{{if not .Statute.Acts}}  <li><strong>Every Act of Parliament</strong>: about 13,700 Acts since 1901, 4,800 of them in force, with their size, age, amendments and the government that made them.</li>
+{{end}}  <li><strong>What the Acts do</strong>: the offences each creates, how many carry strict liability, and the powers it hands to ministers to make further rules.</li>
   <li><strong>The High Court</strong>: which laws have been challenged, and which sections of the Constitution the Court relies on most.</li>
 </ul>
 {{end}}

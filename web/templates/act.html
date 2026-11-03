@@ -1,0 +1,58 @@
+{{define "title"}}{{.Act.Name}}{{end}}
+{{define "description"}}{{.Act.Name}}: made {{date .Act.MakingDate}}, {{if eq .Act.InForce 1}}in force{{else}}{{lower .Act.Status}}{{end}}, amended by {{.Act.AmendedBy}} Acts.{{end}}
+
+{{define "content"}}
+{{template "crumbs" .Crumbs}}
+<p class="kicker">{{if eq .Act.IsPrincipal 1}}Principal Act{{else}}Amending Act{{end}} · {{if eq .Act.InForce 1}}In force{{else}}{{.Act.Status}}{{end}}</p>
+<h1>{{.Act.Name}}</h1>
+
+<dl class="facts">
+  <div><dt>Made</dt><dd>{{date .Act.MakingDate}}</dd></div>
+  <div><dt>Government</dt><dd>{{if .Act.PrimeMinister}}{{.Act.PrimeMinister}} ({{.Act.Party}}){{else}}–{{end}}</dd></div>
+  {{if .Act.EndedOn}}<div><dt>{{.Act.Status}}</dt><dd>{{date .Act.EndedOn}}{{with .Title.EndedByName}} by {{if $.Title.EndedBy}}<a href="/act/{{$.Title.EndedBy}}">{{.}}</a>{{else}}{{.}}{{end}}{{end}}</dd></div>{{end}}
+  <div><dt>Pages</dt><dd>{{nint .Act.Pages}}{{if and .Act.Pages.Valid .Act.FirstPages.Valid}} <span class="muted small">({{nint .Act.FirstPages}} as made)</span>{{end}}</dd></div>
+  <div><dt>Amended by</dt><dd>{{count .Act.AmendedBy}} Acts</dd></div>
+  <div><dt>Last changed</dt><dd>{{if .Act.LastChanged}}{{date .Act.LastChanged}}{{else}}Never{{end}}</dd></div>
+  {{if .Act.Amends}}<div><dt>Amends</dt><dd>{{count .Act.Amends}} other laws</dd></div>{{end}}
+</dl>
+<p class="small"><a href="https://www.legislation.gov.au/{{.Act.ID}}/latest/text">Read it on the Federal Register of Legislation</a>{{with .Title.BillUri}} · <a href="{{.}}">The Bill in Parliament</a>{{end}}</p>
+
+{{if .Compilations}}
+<h2 id="compilations">Compilations</h2>
+<p class="muted small">A compilation is the Act's text as in force for a period. Each new compilation incorporates the amendments made since the last.</p>
+<div class="scroll">
+<table class="data compilations">
+  <thead><tr><th class="num">No.</th><th>In force</th><th class="num">Pages</th><th class="share"></th></tr></thead>
+  <tbody>
+    {{range .Compilations}}
+    <tr>
+      <td class="num">{{.CompilationNumber}}</td>
+      <td class="date">{{date .StartDate}} – {{if .EndDate}}{{date .EndDate}}{{else}}today{{end}}</td>
+      <td class="num">{{nint .Pages}}</td>
+      <td class="share"><span class="meter"><span style="width: {{f1 .Share}}%"></span></span></td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+</div>
+{{end}}
+
+{{if .AmendedBy}}
+<h2 id="amended-by">Amended by</h2>
+<div class="scroll">
+<table class="data">
+  <thead><tr><th>Act</th><th>Made</th><th class="num">First in compilation</th></tr></thead>
+  <tbody>
+    {{range .AmendedBy}}<tr><th><a href="/act/{{.ByTitleID}}">{{.ByName}}</a></th><td class="date">{{date .Made}}</td><td class="num">{{.FirstCompilation}}</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+{{end}}
+
+{{if .Amends}}
+<h2 id="amends">Laws this Act amended</h2>
+<ul class="link-list">
+  {{range .Amends}}<li>{{if eq .Collection "Act"}}<a href="/act/{{.TitleID}}">{{.Name}}</a>{{else if eq .Collection "Constitution"}}<a href="/constitution">{{.Name}}</a>{{else}}{{.Name}}{{end}}{{if eq .InForce 0}} <span class="badge">no longer in force</span>{{end}}</li>{{end}}
+</ul>
+{{end}}
+{{end}}

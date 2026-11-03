@@ -1,0 +1,85 @@
+{{define "title"}}The statute book{{end}}
+{{define "description"}}Every Act of the Commonwealth Parliament since 1901: how many are in force, how many pages they run to, how the statute book has grown, and which governments made them.{{end}}
+
+{{define "content"}}
+{{template "crumbs" .Crumbs}}
+<p class="kicker">The statute book</p>
+<h1>The statute book</h1>
+<p class="lede">Since 1901 the Commonwealth Parliament has made {{count .Totals.Acts}} Acts. {{count .Totals.InForce}} are in force today: {{count .Totals.Principal}} principal Acts, which set out the law on a subject, and {{count .Totals.Amending}} amending Acts, which change other Acts.</p>
+
+<dl class="stats">
+  <div><dt>Acts in force</dt><dd>{{count .Totals.InForce}}</dd></div>
+  <div><dt>Pages in force</dt><dd>{{count .Totals.Pages}}</dd></div>
+  <div><dt>Amending Acts still in force</dt><dd>{{count .Totals.Amending}}</dd></div>
+  <div><dt>Acts made since 1901</dt><dd>{{count .Totals.Acts}}</dd></div>
+</dl>
+<p class="small muted">Pages are the printed length of each Act's latest compilation, as published on the Register. Page counts are available for {{count .Totals.WithPages}} of the {{count .Totals.InForce}} Acts in force. <a href="/acts">Browse every Act</a>.</p>
+
+<h2 id="growth">How the statute book has grown</h2>
+<p>Pages of Commonwealth Acts in force on 1 January of each year.</p>
+<figure class="chart-figure">
+  {{template "area" (dict "C" .Pages "Title" "Pages of Acts in force on 1 January of each year, 1902 to today")}}
+  <figcaption class="legend"><span><span class="sw s-area"></span>Pages in force</span><a class="pager-csv" href="/statute-book.csv">Download CSV</a></figcaption>
+</figure>
+
+<h2 id="in-force">Acts in force</h2>
+<p>Acts in force on 1 January of each year. An amending Act stays in force after it has made its changes until a later Act repeals it.</p>
+<figure class="chart-figure">
+  {{template "columns" (dict "C" .InForce "Title" "Principal and amending Acts in force on 1 January of each year")}}
+  <figcaption class="legend">
+    <span><span class="sw s-principal"></span>Principal Acts</span>
+    <span><span class="sw s-amending"></span>Amending Acts</span>
+  </figcaption>
+</figure>
+
+<h2 id="who">Who made them</h2>
+<p>Acts made each year, by the side of politics in government on the day each Act was made. Of all Acts since 1901, {{count .MadeNonLabor}} were made under non-Labor governments and {{count .MadeLabor}} under Labor governments.</p>
+<figure class="chart-figure">
+  {{template "columns" (dict "C" .Made "Title" "Acts made each year, by the side of government")}}
+  <figcaption class="legend">
+    <span><span class="sw s-nonlabor"></span>Non-Labor government</span>
+    <span><span class="sw s-labor"></span>Labor government</span>
+  </figcaption>
+</figure>
+<p class="small muted">An Act is made on the day it receives Royal Assent. Parliament passes it, so the opposition and crossbench often vote for it too. "Non-Labor" covers the Protectionist, Free Trade, Commonwealth Liberal, National Labor, Nationalist, United Australia, Country and Liberal parties. <a href="/methodology#governments">How we assign governments</a>.</p>
+
+<div class="scroll">
+<table class="data">
+  <thead><tr><th>Prime Minister</th><th>Party</th><th>In office</th><th class="num">Acts made</th><th class="num">Principal Acts made</th><th class="num">Principal Acts still in force</th><th class="num">Their pages today</th></tr></thead>
+  <tbody>
+    {{range .Governments}}
+    <tr>
+      <th><a href="/acts?status=all&amp;side={{.Side}}&amp;sort=oldest">{{.PrimeMinister}}</a></th>
+      <td>{{.Party}}</td>
+      <td class="date">{{year .StartDate}}–{{if .EndDate}}{{year .EndDate}}{{else}}today{{end}}</td>
+      <td class="num">{{count .Made}}</td>
+      <td class="num">{{count .PrincipalMade}}</td>
+      <td class="num">{{count .PrincipalInForce}}</td>
+      <td class="num">{{count .PagesInForce}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+</div>
+
+<h2 id="largest">The largest Acts in force</h2>
+<div class="scroll">
+<table class="data">
+  <thead><tr><th>Act</th><th class="num">Pages</th><th class="num">Pages as made</th><th class="num">Amended by</th></tr></thead>
+  <tbody>
+    {{range .Largest}}<tr><th><a href="/act/{{.ID}}">{{.Name}}</a></th><td class="num">{{nint .Pages}}</td><td class="num">{{nint .FirstPages}}</td><td class="num">{{count .AmendedBy}} Acts</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+
+<h2 id="amended">The most amended Acts in force</h2>
+<div class="scroll">
+<table class="data">
+  <thead><tr><th>Act</th><th class="num">Amended by</th><th class="num">Compilations</th><th class="num">Pages</th></tr></thead>
+  <tbody>
+    {{range .MostAmended}}<tr><th><a href="/act/{{.ID}}">{{.Name}}</a></th><td class="num">{{count .AmendedBy}} Acts</td><td class="num">{{count .Compilations}}</td><td class="num">{{nint .Pages}}</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+<p><a href="/acts?sort=amended">See every Act by how often it has been amended</a> · <a href="/acts?kind=amending&amp;sort=oldest">See the amending Acts still in force, oldest first</a></p>
+{{end}}

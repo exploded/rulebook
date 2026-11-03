@@ -35,8 +35,13 @@ CREATE TABLE IF NOT EXISTS title (
   year                INTEGER,
   number              INTEGER,
   bill_uri            TEXT NOT NULL DEFAULT '',
+  ended_on            TEXT NOT NULL DEFAULT '',  -- date it was repealed or ceased
+  ended_by            TEXT NOT NULL DEFAULT '',  -- title id of the law that ended it
+  ended_by_name       TEXT NOT NULL DEFAULT '',
   source_document_id  INTEGER NOT NULL REFERENCES source_document(id)
 );
+
+CREATE INDEX IF NOT EXISTS title_collection ON title(collection, in_force);
 
 -- A compilation: the text of a title as in force from start until end.
 CREATE TABLE IF NOT EXISTS version (
@@ -46,6 +51,7 @@ CREATE TABLE IF NOT EXISTS version (
   start_date          TEXT NOT NULL,
   end_date            TEXT NOT NULL DEFAULT '',  -- '' while current
   is_latest           INTEGER NOT NULL,
+  pages               INTEGER,           -- from the compilation's PDF; NULL if unknown
   PRIMARY KEY (title_id, compilation_number)
 );
 
@@ -59,6 +65,8 @@ CREATE TABLE IF NOT EXISTS amendment (
   by_provisions       TEXT NOT NULL DEFAULT '',
   PRIMARY KEY (title_id, compilation_number, by_title_id, by_provisions)
 );
+
+CREATE INDEX IF NOT EXISTS amendment_by ON amendment(by_title_id);
 
 -- A section (or covering clause, or schedule) of a title's latest text.
 CREATE TABLE IF NOT EXISTS provision (
@@ -91,4 +99,52 @@ CREATE TABLE IF NOT EXISTS referendum (
   alteration_act     TEXT NOT NULL DEFAULT '',  -- title id of the Constitution Alteration Act
   sections_changed   TEXT NOT NULL DEFAULT '',
   source_document_id INTEGER NOT NULL REFERENCES source_document(id)
+);
+
+-- The government of the day: one row per prime ministerial term, checked
+-- against the Parliamentary Handbook's ministry dates.
+CREATE TABLE IF NOT EXISTS government (
+  id                 INTEGER PRIMARY KEY,  -- order in office
+  prime_minister     TEXT NOT NULL,
+  party              TEXT NOT NULL,
+  side               TEXT NOT NULL,        -- Labor | Non-Labor
+  start_date         TEXT NOT NULL,
+  end_date           TEXT NOT NULL DEFAULT '',  -- '' while in office
+  source_document_id INTEGER NOT NULL REFERENCES source_document(id)
+);
+
+-- Derived by cmd/derive from title, version, amendment and government.
+-- One row per Act.
+CREATE TABLE IF NOT EXISTS act_summary (
+  id              TEXT PRIMARY KEY REFERENCES title(id),
+  name            TEXT NOT NULL,
+  status          TEXT NOT NULL,
+  in_force        INTEGER NOT NULL,
+  is_principal    INTEGER NOT NULL,
+  making_date     TEXT NOT NULL,
+  ended_on        TEXT NOT NULL,
+  compilations    INTEGER NOT NULL,
+  pages           INTEGER,               -- latest compilation
+  first_pages     INTEGER,               -- as made
+  amended_by      INTEGER NOT NULL,      -- distinct laws that amended it
+  amends          INTEGER NOT NULL,      -- distinct Acts it amended
+  last_changed    TEXT NOT NULL,         -- start of its latest compilation after the first
+  government_id   INTEGER REFERENCES government(id),
+  prime_minister  TEXT NOT NULL,
+  party           TEXT NOT NULL,
+  side            TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS act_summary_force ON act_summary(in_force, is_principal);
+CREATE INDEX IF NOT EXISTS act_summary_made ON act_summary(making_date);
+
+-- The statute book on 1 January of each year.
+CREATE TABLE IF NOT EXISTS statute_year (
+  year                INTEGER PRIMARY KEY,
+  principal_in_force  INTEGER NOT NULL,
+  amending_in_force   INTEGER NOT NULL,
+  pages_in_force      INTEGER NOT NULL,  -- Acts whose compilation in force has a page count
+  acts_with_pages     INTEGER NOT NULL,
+  made_labor          INTEGER NOT NULL,  -- Acts made during the year, by side of government
+  made_non_labor      INTEGER NOT NULL
 );

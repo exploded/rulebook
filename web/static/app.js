@@ -50,6 +50,7 @@
 (function () {
   var section = {
     constitution: "constitution", referendums: "referendums",
+    "statute-book": "statute-book", acts: "acts", act: "acts",
     methodology: "methodology", about: "about", sources: "about"
   }[location.pathname.split("/")[1]];
   if (!section) return;

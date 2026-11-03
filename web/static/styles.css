@@ -398,3 +398,35 @@ table.referendums tr:target { outline: 2px solid var(--meter); }
   .chart .hit { r: 16px; }
   .provision-text { font-size: 16.5px; }
 }
+
+/* Statute book charts. Series colours are the dataviz reference palette's
+   first two categorical slots (validated), stepped for dark mode. */
+:root { --series-nonlabor: #2a78d6; --series-labor: #eb6834; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --series-nonlabor: #3987e5; --series-labor: #d95926; }
+}
+:root[data-theme="dark"] { --series-nonlabor: #3987e5; --series-labor: #d95926; }
+.chart .s-principal, .sw.s-principal { fill: var(--ink-2); background: var(--ink-2); }
+.chart .s-amending, .sw.s-amending { fill: var(--flat); background: var(--flat); }
+.chart .s-nonlabor, .sw.s-nonlabor { fill: var(--series-nonlabor); background: var(--series-nonlabor); }
+.chart .s-labor, .sw.s-labor { fill: var(--series-labor); background: var(--series-labor); }
+.chart .col:hover rect:not(.hit) { opacity: 0.75; }
+.chart .area-fill { fill: color-mix(in oklab, var(--meter) 18%, transparent); }
+.chart .area-line { fill: none; stroke: var(--meter); stroke-width: 2; stroke-linejoin: round; }
+.chart .band { fill: transparent; }
+.chart .band:hover { fill: color-mix(in oklab, var(--ink) 7%, transparent); }
+.sw.s-area { background: var(--meter); }
+
+/* Acts list */
+.filters { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; margin: 8px 0 18px; }
+.filters label { display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--ink-3); min-width: 0; }
+.filters .filter-q { flex: 1 1 220px; }
+.filters input, .filters select {
+  font: 14px var(--sans); color: var(--ink); background: var(--surface);
+  border: 1px solid var(--rule); border-radius: 6px; padding: 7px 8px; min-width: 0;
+}
+.filters input:focus, .filters select:focus { outline: 2px solid var(--meter); outline-offset: 1px; }
+table.acts tbody th { min-width: 260px; }
+table.compilations .share { width: 40%; min-width: 120px; }
+.link-list { columns: 2 320px; column-gap: 32px; padding-left: 18px; }
+.link-list li { margin: 3px 0; break-inside: avoid; }

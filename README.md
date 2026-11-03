@@ -88,6 +88,34 @@ API notes:
     Many in-force Acts are amending Acts whose changes were made long ago (for
     example *Taxation Laws Amendment Act (No. 3) 2000*).
 
+### Acts
+
+`cmd/load-acts` loads every Act: its details and status history (repeal
+date and the repealing Act), every compilation, the laws named as amending
+it, and each compilation's page count from its PDF. Then `cmd/derive`
+rebuilds `act_summary` and `statute_year`, which the pages read.
+
+The loader is deliberately slow. It waits 3 seconds after each live request,
+asks for 10 Acts per batch, and only fetches during the Register's quiet hours
+(20:00–08:00 AEST, which is 21:00–09:00 during daylight saving), waiting for
+them if started during the day. A first run is about 2,900 requests. Cached
+responses are reused, so a stopped run resumes.
+
+PowerShell on your PC, in `C:\Projects\go\laws`:
+
+```
+go run ./cmd/load-acts
+go run ./cmd/derive
+```
+
+### Governments
+
+`data/governments.csv` lists each prime ministerial term since 1901 with the
+PM's party and side (Labor or non-Labor). Every start and end date is a
+ministry boundary in the Parliamentary Handbook
+(https://handbookapi.aph.gov.au/api/ministries); a check script compared all
+39 rows on 2026-11-03. `cmd/load-governments` loads it.
+
 ### Referendums
 
 `data/referendums.csv` holds all 45 proposals put to electors. It joins:

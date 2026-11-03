@@ -20,3 +20,35 @@
   </figcaption>
 </figure>
 {{end}}
+
+{{/* A stacked column chart from chart.Columns: dict "C" chart "Title" text. */}}
+{{define "columns"}}
+<div class="chart-scroll">
+<svg class="chart" viewBox="0 0 {{.C.W}} {{.C.H}}" role="img"><title>{{.Title}}</title>
+  {{range .C.YTicks}}<line class="grid" x1="{{$.C.Left}}" x2="{{$.C.Right}}" y1="{{.Pos}}" y2="{{.Pos}}"/>
+  <text class="axis" x="{{sub $.C.Left 6}}" y="{{.Pos}}" text-anchor="end" dominant-baseline="middle">{{.Label}}</text>
+  {{end}}
+  {{range .C.XTicks}}<text class="axis" x="{{.Pos}}" y="{{add2 $.C.Bottom 18}}" text-anchor="middle">{{.Label}}</text>
+  {{end}}
+  {{range $col := .C.Columns}}<g class="col" data-tip="{{$col.Tip}}"><rect class="hit" x="{{$col.X}}" y="{{$col.HitY}}" width="{{$col.W}}" height="{{$col.HitH}}"/>{{range $col.Segments}}<rect class="{{.Class}}" x="{{$col.X}}" y="{{.Y}}" width="{{$col.W}}" height="{{.H}}"/>{{end}}</g>
+  {{end}}
+</svg>
+</div>
+{{end}}
+
+{{/* A line over a filled area from chart.Area: dict "C" chart "Title" text. */}}
+{{define "area"}}
+<div class="chart-scroll">
+<svg class="chart" viewBox="0 0 {{.C.W}} {{.C.H}}" role="img"><title>{{.Title}}</title>
+  {{range .C.YTicks}}<line class="grid" x1="{{$.C.Left}}" x2="{{$.C.Right}}" y1="{{.Pos}}" y2="{{.Pos}}"/>
+  <text class="axis" x="{{sub $.C.Left 6}}" y="{{.Pos}}" text-anchor="end" dominant-baseline="middle">{{.Label}}</text>
+  {{end}}
+  {{range .C.XTicks}}<text class="axis" x="{{.Pos}}" y="{{add2 $.C.Bottom 18}}" text-anchor="middle">{{.Label}}</text>
+  {{end}}
+  <path class="area-fill" d="{{.C.Fill}}"/>
+  <path class="area-line" d="{{.C.Line}}"/>
+  {{range .C.Bands}}<rect class="band" x="{{.X}}" y="{{.HitY}}" width="{{.W}}" height="{{.HitH}}" data-tip="{{.Tip}}"/>
+  {{end}}
+</svg>
+</div>
+{{end}}

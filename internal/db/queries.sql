@@ -10,20 +10,21 @@ INSERT INTO load_run (command, source_document_id, rows_read, rows_written, note
 VALUES (?, ?, ?, ?, ?);
 
 -- name: UpsertTitle :exec
-INSERT INTO title (id, name, collection, status, in_force, is_principal, making_date, year, number, bill_uri, source_document_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO title (id, name, collection, status, in_force, is_principal, making_date, year, number, bill_uri, ended_on, ended_by, ended_by_name, source_document_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (id) DO UPDATE SET
   name = excluded.name, collection = excluded.collection, status = excluded.status,
   in_force = excluded.in_force, is_principal = excluded.is_principal,
   making_date = excluded.making_date, year = excluded.year, number = excluded.number,
-  bill_uri = excluded.bill_uri, source_document_id = excluded.source_document_id;
+  bill_uri = excluded.bill_uri, ended_on = excluded.ended_on, ended_by = excluded.ended_by,
+  ended_by_name = excluded.ended_by_name, source_document_id = excluded.source_document_id;
 
 -- name: DeleteVersions :exec
 DELETE FROM version WHERE title_id = ?;
 
 -- name: InsertVersion :exec
-INSERT INTO version (title_id, compilation_number, register_id, start_date, end_date, is_latest)
-VALUES (?, ?, ?, ?, ?, ?);
+INSERT INTO version (title_id, compilation_number, register_id, start_date, end_date, is_latest, pages)
+VALUES (?, ?, ?, ?, ?, ?, ?);
 
 -- name: DeleteAmendments :exec
 DELETE FROM amendment WHERE title_id = ?;
@@ -70,3 +71,56 @@ SELECT lr.command, lr.rows_read, lr.rows_written, lr.notes, lr.finished_at,
 FROM load_run lr JOIN source_document sd ON sd.id = lr.source_document_id
 ORDER BY lr.finished_at DESC, lr.id DESC
 LIMIT 200;
+
+-- name: DeleteGovernments :exec
+DELETE FROM government;
+
+-- name: InsertGovernment :exec
+INSERT INTO government (id, prime_minister, party, side, start_date, end_date, source_document_id)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+-- name: GetActSummary :one
+SELECT * FROM act_summary WHERE id = ?;
+
+-- name: ListAmendedBy :many
+SELECT a.by_title_id, a.by_name, COALESCE(t.making_date, '') AS made,
+       CAST(MIN(a.compilation_number) AS INTEGER) AS first_compilation
+FROM amendment a LEFT JOIN title t ON t.id = a.by_title_id
+WHERE a.title_id = ?
+GROUP BY a.by_title_id, a.by_name
+ORDER BY made DESC, a.by_title_id;
+
+-- name: ListAmends :many
+SELECT a.title_id, t.name, t.collection, t.in_force
+FROM amendment a JOIN title t ON t.id = a.title_id
+WHERE a.by_title_id = ?
+GROUP BY a.title_id, t.name, t.collection, t.in_force
+ORDER BY t.name;
+
+-- name: ListStatuteYears :many
+SELECT * FROM statute_year ORDER BY year;
+
+-- name: StatuteTotals :one
+SELECT CAST(COUNT(*) AS INTEGER) AS acts,
+       CAST(COALESCE(SUM(in_force), 0) AS INTEGER) AS in_force,
+       CAST(COALESCE(SUM(CASE WHEN in_force = 1 AND is_principal = 1 THEN 1 ELSE 0 END), 0) AS INTEGER) AS principal,
+       CAST(COALESCE(SUM(CASE WHEN in_force = 1 AND is_principal = 0 THEN 1 ELSE 0 END), 0) AS INTEGER) AS amending,
+       CAST(COALESCE(SUM(CASE WHEN in_force = 1 THEN pages END), 0) AS INTEGER) AS pages,
+       CAST(COALESCE(SUM(CASE WHEN in_force = 1 AND pages IS NOT NULL THEN 1 ELSE 0 END), 0) AS INTEGER) AS with_pages
+FROM act_summary;
+
+-- name: GovernmentStats :many
+SELECT g.id, g.prime_minister, g.party, g.side, g.start_date, g.end_date,
+       CAST(COUNT(s.id) AS INTEGER) AS made,
+       CAST(COALESCE(SUM(s.is_principal), 0) AS INTEGER) AS principal_made,
+       CAST(COALESCE(SUM(CASE WHEN s.is_principal = 1 AND s.in_force = 1 THEN 1 ELSE 0 END), 0) AS INTEGER) AS principal_in_force,
+       CAST(COALESCE(SUM(CASE WHEN s.is_principal = 1 AND s.in_force = 1 THEN s.pages END), 0) AS INTEGER) AS pages_in_force
+FROM government g LEFT JOIN act_summary s ON s.government_id = g.id
+GROUP BY g.id
+ORDER BY g.id;
+
+-- name: LargestActs :many
+SELECT * FROM act_summary WHERE in_force = 1 AND pages IS NOT NULL ORDER BY pages DESC LIMIT ?;
+
+-- name: MostAmendedActs :many
+SELECT * FROM act_summary WHERE in_force = 1 ORDER BY amended_by DESC LIMIT ?;

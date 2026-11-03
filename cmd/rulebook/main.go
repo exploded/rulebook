@@ -39,7 +39,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	h, err := handlers.New(db.New(conn), web.Templates, web.Static)
+	h, err := handlers.New(conn, web.Templates, web.Static)
 	if err != nil {
 		slog.Error("load templates", "error", err)
 		os.Exit(1)

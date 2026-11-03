@@ -15,7 +15,12 @@ var SchemaSQL string
 // created. CREATE TABLE IF NOT EXISTS leaves an existing table as it is, so
 // Open adds them to older databases before applying the schema, whose indexes
 // may use them.
-var addedColumns = []struct{ table, column, decl string }{}
+var addedColumns = []struct{ table, column, decl string }{
+	{"title", "ended_on", "TEXT NOT NULL DEFAULT ''"},
+	{"title", "ended_by", "TEXT NOT NULL DEFAULT ''"},
+	{"title", "ended_by_name", "TEXT NOT NULL DEFAULT ''"},
+	{"version", "pages", "INTEGER"},
+}
 
 // Open opens (creating if needed) the SQLite database at path and applies the schema.
 func Open(path string) (*sql.DB, error) {

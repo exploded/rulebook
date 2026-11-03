@@ -1,9 +1,14 @@
 package handlers
 
-import "net/http"
+import (
+	"net/http"
+
+	"rulebook/internal/db"
+)
 
 type homePage struct {
 	constitutionPage
+	Statute db.StatuteTotalsRow
 }
 
 func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
@@ -13,5 +18,10 @@ func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c.Crumbs = nil
-	h.render(w, "home.html", homePage{c})
+	t, err := h.q.StatuteTotals(r.Context())
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	h.render(w, "home.html", homePage{c, t})
 }

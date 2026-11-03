@@ -20,11 +20,12 @@ import (
 )
 
 type Handler struct {
+	conn  *sql.DB // for the few queries built at run time, like the Acts filter
 	q     *db.Queries
 	pages map[string]*template.Template
 }
 
-func New(q *db.Queries, templates, static fs.FS) (*Handler, error) {
+func New(conn *sql.DB, templates, static fs.FS) (*Handler, error) {
 	assets, err := assetURLs(static)
 	if err != nil {
 		return nil, err
@@ -39,15 +40,30 @@ func New(q *db.Queries, templates, static fs.FS) (*Handler, error) {
 		"year":   func(d string) string { return d[:min(4, len(d))] },
 		"add":    func(a, b int) int { return a + b },
 		"neg":    func(a int) int { return -a },
+		"int64":  func(a int) int64 { return int64(a) },
+		"lower":  strings.ToLower,
 		"add2":   func(a, b float64) float64 { return a + b },
 		"sub":    func(a, b float64) float64 { return a - b },
 		"trimS":  func(s string) string { return strings.TrimPrefix(s, "s ") },
 		// basis is a section tile's minimum width in pixels: wide enough for
 		// its number, wider for long sections, so a row wraps sensibly.
 		"basis": func(words int64) int64 { return max(30, min(words/6, 220)) },
+		"nint": func(n sql.NullInt64) string {
+			if !n.Valid {
+				return "–"
+			}
+			return count(n.Int64)
+		},
+		"dict": func(kv ...any) map[string]any {
+			m := map[string]any{}
+			for i := 0; i+1 < len(kv); i += 2 {
+				m[kv[i].(string)] = kv[i+1]
+			}
+			return m
+		},
 	}
-	h := &Handler{q: q, pages: map[string]*template.Template{}}
-	for _, page := range []string{"home.html", "constitution.html", "provision.html", "referendums.html", "about.html", "methodology.html", "sources.html"} {
+	h := &Handler{conn: conn, q: db.New(conn), pages: map[string]*template.Template{}}
+	for _, page := range []string{"home.html", "constitution.html", "provision.html", "referendums.html", "about.html", "methodology.html", "sources.html", "acts.html", "act.html", "statute.html"} {
 		t, err := template.New("").Funcs(funcs).ParseFS(templates, "layout.html", "partials.html", page)
 		if err != nil {
 			return nil, err
@@ -82,6 +98,11 @@ func (h *Handler) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /constitution/{ref}", h.provision)
 	mux.HandleFunc("GET /referendums", h.referendums)
 	mux.HandleFunc("GET /referendums.csv", h.referendumsCSV)
+	mux.HandleFunc("GET /acts", h.acts)
+	mux.HandleFunc("GET /acts.csv", h.actsCSV)
+	mux.HandleFunc("GET /act/{id}", h.act)
+	mux.HandleFunc("GET /statute-book", h.statuteBook)
+	mux.HandleFunc("GET /statute-book.csv", h.statuteBookCSV)
 	mux.HandleFunc("GET /about", h.static("about.html"))
 	mux.HandleFunc("GET /methodology", h.static("methodology.html"))
 	mux.HandleFunc("GET /sources", h.sources)
