@@ -70,6 +70,23 @@ API notes:
 - Filter on `isInForce eq true`, not `status`.
 - The `Affect` entity returns 404. Amendment history comes from `Versions`
   `reasons` instead.
+- Tested on 2026-11-03 with about 10 requests:
+  - **Counts:** `$count=true` with `$top=1` returns 13,754 Acts, 4,783 of them
+    in force, in under 0.3 seconds.
+  - **Don't expand `versions` from `Titles`.** That request hit a 504 after
+    3 minutes, even for 5 titles.
+  - **Batch `Versions` with an `or` filter instead:** `titleId eq 'A' or
+    titleId eq 'B' ...` returned 5 titles' compilations in 2 seconds. Batches
+    of about 20 cover every Act in about 700 requests.
+  - **Expanding `administeringDepartments` is fast** (0.2 seconds). Each entry
+    has `id`, `name` and `portfolio`. The navigation path
+    `Titles('<id>')/administeringDepartments` returns 404, so use `$expand`.
+  - **Page counts:** `Documents`, filtered on `format eq 'Pdf' and type eq
+    'Primary'`, gives `pageCount` for every compilation, so we can chart each
+    Act's size over time.
+  - **`isPrincipal` reads correctly**, though it can't be used as a filter.
+    Many in-force Acts are amending Acts whose changes were made long ago (for
+    example *Taxation Laws Amendment Act (No. 3) 2000*).
 
 ### Referendums
 
