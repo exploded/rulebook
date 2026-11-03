@@ -3,10 +3,11 @@ package chart
 import "testing"
 
 func TestNiceMax(t *testing.T) {
-	cases := []struct{ in, top float64 }{{0, 1}, {7, 10}, {13, 20}, {230, 250}, {4783, 5000}, {98000, 100000}, {120000, 200000}}
+	cases := []struct{ in, top, step float64 }{{0, 1, 1}, {7, 10, 2}, {13, 20, 5}, {230, 250, 50},
+		{4783, 5000, 1000}, {98000, 100000, 20000}, {120000, 200000, 50000}, {241727, 250000, 50000}}
 	for _, c := range cases {
-		if top, _ := NiceMax(c.in); top != c.top {
-			t.Errorf("NiceMax(%v) = %v, want %v", c.in, top, c.top)
+		if top, step := NiceMax(c.in); top != c.top || step != c.step {
+			t.Errorf("NiceMax(%v) = %v, %v, want %v, %v", c.in, top, step, c.top, c.step)
 		}
 	}
 }

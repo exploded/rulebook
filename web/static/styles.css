@@ -179,6 +179,9 @@ details.fn > summary:hover .kind-name { color: var(--link); }
 /* Treemap: a light tint of the change colour, with the full colour as a top edge. */
 .treemap-figure { margin: 0 0 32px; }
 .treemap { position: relative; width: 100%; aspect-ratio: 2.2 / 1; background: var(--bg); }
+.treemap-tall .treemap { aspect-ratio: 0.8 / 1; }
+.treemap-tall .tile-name { -webkit-line-clamp: 2; }
+.phone-only { display: none; }
 .tile {
   position: absolute; display: flex; flex-direction: column; gap: 2px;
   padding: 0; overflow: hidden; background: var(--tile-bg);
@@ -306,8 +309,10 @@ tr.current th, tr.current td { font-weight: 700; }
   }
   .masthead nav a { padding: 10px 0 9px; }
   .masthead nav .nav-search { order: -1; }  .hero-number { font-size: 60px; }
-  .tile-name, .tile-change { display: none; }
-  .tile.labelled { padding: 4px; font-size: 11px; }
+  .wide-only { display: none; }
+  .phone-only { display: block; }
+  .tile-change { display: none; }
+  .tile.labelled { padding: 6px; font-size: 12px; }
   .kind { grid-template-columns: 1fr auto; }
   .kind .meter { grid-column: 1 / -1; grid-row: 2; }
   .equation li { font-size: 14px; }

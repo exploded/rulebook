@@ -24,7 +24,7 @@ SELECT t.id, t.name, t.status, t.in_force, t.is_principal, t.making_date, t.ende
   (SELECT v.pages FROM version v WHERE v.title_id = t.id AND v.seq = 0),
   (SELECT COUNT(DISTINCT a.by_title_id) FROM amendment a WHERE a.title_id = t.id),
   (SELECT COUNT(DISTINCT a.title_id) FROM amendment a WHERE a.by_title_id = t.id),
-  COALESCE((SELECT MAX(v.start_date) FROM version v WHERE v.title_id = t.id AND v.seq > 0), ''),
+  COALESCE((SELECT MAX(v.start_date) FROM version v WHERE v.title_id = t.id AND v.seq > 0 AND v.start_date <= date('now')), ''),
   g.id, COALESCE(g.prime_minister, ''), COALESCE(g.party, ''), COALESCE(g.side, ''),
   COALESCE((SELECT group_concat(portfolio, '; ') FROM
     (SELECT DISTINCT a.portfolio FROM administration a WHERE a.title_id = t.id ORDER BY a.portfolio)), '')

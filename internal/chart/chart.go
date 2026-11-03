@@ -50,8 +50,9 @@ func newFrame() Frame {
 	return Frame{W: 1000, H: 280, Left: 60, Right: 988, Top: 12, Bottom: 252}
 }
 
-// NiceMax rounds max up to 1, 2 or 5 times a power of ten, so the y axis
-// ends on a round number, and returns the tick step.
+// NiceMax rounds max up to 1, 2, 2.5 or 5 times a power of ten, so the y
+// axis ends on a round number, and returns a tick step that is round too:
+// a quarter of 2, and a fifth of the others.
 func NiceMax(max float64) (top, step float64) {
 	if max <= 0 {
 		return 1, 1
@@ -60,10 +61,13 @@ func NiceMax(max float64) (top, step float64) {
 	for _, m := range []float64{1, 2, 2.5, 5, 10} {
 		if m*mag >= max {
 			top = m * mag
+			if m == 2 {
+				return top, top / 4
+			}
 			break
 		}
 	}
-	return top, top / 4
+	return top, top / 5
 }
 
 // Count formats n with thousands separators.

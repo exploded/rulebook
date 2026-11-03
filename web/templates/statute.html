@@ -36,7 +36,8 @@
 <h2 id="portfolios">Who administers them</h2>
 <p>Pages of Acts in force, by the portfolio that administers them today. Each box is a portfolio; select one to see its Acts.</p>
 <figure class="treemap-figure">
-  {{template "treemap" .Tiles}}
+  <div class="wide-only">{{template "treemap" .Tiles}}</div>
+  <div class="phone-only treemap-tall">{{template "treemap" .PhoneTiles}}</div>
   <figcaption class="small muted">Administering departments are as the Register lists them under the current Administrative Arrangements Order. An Act administered by more than one portfolio has its pages split equally between them, so the boxes add up to the pages in force. <a href="/methodology#portfolios">How we count</a>.</figcaption>
 </figure>
 <div class="scroll">

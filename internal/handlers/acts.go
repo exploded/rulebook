@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"rulebook/internal/chart"
 	"rulebook/internal/db"
@@ -17,8 +18,12 @@ import (
 
 const actsPerPage = 50
 
-// treemapAspect is the treemap's width / height; the CSS uses the same ratio.
-const treemapAspect = 2.2
+// treemapAspect is the treemap's width / height, and phoneTreemapAspect the
+// taller one phones get, so names fit; the CSS uses the same ratios.
+const (
+	treemapAspect      = 2.2
+	phoneTreemapAspect = 0.8
+)
 
 // actFilter is the Acts list's query string. Every value but Portfolio and
 // Q is checked against a fixed list, so it can go into SQL as written; those
@@ -235,6 +240,8 @@ type actPage struct {
 	Act          db.ActSummary
 	Title        db.Title
 	Compilations []compilation
+	Uncompiled   int64    // past periods with no compilation, left out of Compilations
+	Upcoming     []string // start dates of versions not yet in force
 	AmendedBy    []db.ListAmendedByRow
 	Amends       []db.ListAmendsRow
 	Departments  []db.ListAdministrationRow
@@ -283,7 +290,16 @@ func (h *Handler) act(w http.ResponseWriter, r *http.Request) {
 			most = max(most, v.Pages.Int64)
 		}
 	}
+	today := time.Now().Format("2006-01-02")
 	for _, v := range vs {
+		switch {
+		case v.StartDate > today:
+			p.Upcoming = append(p.Upcoming, v.StartDate)
+			continue
+		case v.RegisterID == "":
+			p.Uncompiled++
+			continue
+		}
 		c := compilation{Version: v}
 		if v.Pages.Valid && most > 0 {
 			c.Share = 100 * float64(v.Pages.Int64) / float64(most)
@@ -307,6 +323,7 @@ type statutePage struct {
 	MadeNonLabor int64
 	Portfolios   []db.PortfolioSummary
 	Tiles        []chart.Tile
+	PhoneTiles   []chart.Tile
 }
 
 func (h *Handler) statuteBook(w http.ResponseWriter, r *http.Request) {
@@ -351,6 +368,12 @@ func (h *Handler) statuteBook(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	p.Tiles = chart.Treemap(items, treemapAspect)
+	p.PhoneTiles = chart.Treemap(items, phoneTreemapAspect)
+	// A phone's treemap is about 360 pixels wide: a name needs a fifth of it.
+	for i := range p.PhoneTiles {
+		t := &p.PhoneTiles[i]
+		t.Label = t.W >= 20 && t.H >= 8
+	}
 	// 1 January 1901 had no Acts; the series start with 1902.
 	var years []int
 	var pages, principal, amending, labor, nonLabor []float64
