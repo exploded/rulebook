@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"rulebook/internal/analysis"
 	"rulebook/internal/db"
 )
 
@@ -75,6 +76,12 @@ func main() {
 	}
 	n, _ = res.RowsAffected()
 	fmt.Printf("portfolio_summary: %d portfolios\n", n)
+
+	acts, penalties, err := analyseText(ctx, tx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("act_text: %d Acts, %d penalties\n", acts, penalties)
 
 	years, err := statuteYears(ctx, tx, time.Now().Year())
 	if err != nil {
@@ -185,4 +192,89 @@ func statuteYears(ctx context.Context, tx *sql.Tx, thisYear int) ([]db.StatuteYe
 		out = append(out, s)
 	}
 	return out, nil
+}
+
+// analyseText rebuilds penalty and act_text from the Acts' provisions.
+func analyseText(ctx context.Context, tx *sql.Tx) (acts, penalties int, err error) {
+	for _, t := range []string{"penalty", "act_text"} {
+		if _, err := tx.ExecContext(ctx, "DELETE FROM "+t); err != nil {
+			return 0, 0, err
+		}
+	}
+	rows, err := tx.QueryContext(ctx, `SELECT p.title_id, p.seq, p.kind, p.number, p.body, p.words
+		FROM provision p JOIN title t ON t.id = p.title_id
+		WHERE t.collection = 'Act' ORDER BY p.title_id, p.seq`)
+	if err != nil {
+		return 0, 0, err
+	}
+	type prov struct {
+		id, kind, number, body string
+		seq, words             int64
+	}
+	var ps []prov
+	for rows.Next() {
+		var p prov
+		if err := rows.Scan(&p.id, &p.seq, &p.kind, &p.number, &p.body, &p.words); err != nil {
+			return 0, 0, err
+		}
+		ps = append(ps, p)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, 0, err
+	}
+
+	q := db.New(tx)
+	var cur *db.ActText
+	flush := func() error {
+		if cur == nil {
+			return nil
+		}
+		acts++
+		return q.InsertActText(ctx, db.InsertActTextParams(*cur))
+	}
+	for _, p := range ps {
+		if cur == nil || cur.ID != p.id {
+			if err := flush(); err != nil {
+				return 0, 0, err
+			}
+			cur = &db.ActText{ID: p.id}
+		}
+		if p.kind == "section" {
+			cur.Sections++
+		}
+		cur.Words += p.words
+		c := analysis.Analyse(strings.Split(p.body, "\n"))
+		for _, pen := range c.Penalties {
+			if err := q.InsertPenalty(ctx, db.InsertPenaltyParams{
+				TitleID: p.id, Seq: p.seq, Number: p.number, Civil: b2i(pen.Civil), Text: pen.Text,
+				Life: b2i(pen.Life), Months: int64(pen.Months), Units: int64(pen.Units),
+			}); err != nil {
+				return 0, 0, err
+			}
+			penalties++
+			if pen.Civil {
+				cur.CivilPenalties++
+				continue
+			}
+			cur.Offences++
+			cur.Life += b2i(pen.Life)
+			cur.MaxMonths = max(cur.MaxMonths, int64(pen.Months))
+			cur.MaxUnits = max(cur.MaxUnits, int64(pen.Units))
+		}
+		cur.StrictSections += b2i(c.StrictLiability > 0)
+		cur.AbsoluteSections += b2i(c.AbsoluteLiability > 0)
+		cur.EvidentialBurdens += int64(c.EvidentialBurden)
+		cur.LegalBurdens += int64(c.LegalBurden)
+		cur.InstrumentPowers += int64(c.Instruments)
+		cur.RegulationPowers += int64(c.Regulations)
+		cur.HenryViii += int64(c.HenryVIII)
+	}
+	return acts, penalties, flush()
+}
+
+func b2i(b bool) int64 {
+	if b {
+		return 1
+	}
+	return 0
 }

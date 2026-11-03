@@ -179,3 +179,38 @@ CREATE TABLE IF NOT EXISTS portfolio_summary (
   shared      INTEGER NOT NULL,          -- Acts it shares with another portfolio
   pages       INTEGER NOT NULL
 );
+
+-- Derived by cmd/derive from provision with internal/analysis: each penalty
+-- at the foot of a section or subsection of an Act's latest text.
+CREATE TABLE IF NOT EXISTS penalty (
+  title_id   TEXT NOT NULL REFERENCES title(id),
+  seq        INTEGER NOT NULL,          -- the provision's seq
+  number     TEXT NOT NULL,             -- its section number
+  civil      INTEGER NOT NULL,          -- 1 for a civil penalty, 0 for an offence
+  text       TEXT NOT NULL,
+  life       INTEGER NOT NULL,
+  months     INTEGER NOT NULL,          -- longest imprisonment; 0 if none
+  units      INTEGER NOT NULL           -- most penalty units; 0 if none
+);
+
+CREATE INDEX IF NOT EXISTS penalty_title ON penalty(title_id);
+
+-- Derived by cmd/derive: what each Act's latest text says, from
+-- internal/analysis. One row per Act with text loaded.
+CREATE TABLE IF NOT EXISTS act_text (
+  id                 TEXT PRIMARY KEY REFERENCES title(id),
+  sections           INTEGER NOT NULL,
+  words              INTEGER NOT NULL,
+  offences           INTEGER NOT NULL,
+  civil_penalties    INTEGER NOT NULL,
+  strict_sections    INTEGER NOT NULL,  -- sections declaring strict liability
+  absolute_sections  INTEGER NOT NULL,
+  evidential_burdens INTEGER NOT NULL,
+  legal_burdens      INTEGER NOT NULL,
+  instrument_powers  INTEGER NOT NULL,  -- "by legislative instrument"
+  regulation_powers  INTEGER NOT NULL,
+  henry_viii         INTEGER NOT NULL,
+  life               INTEGER NOT NULL,  -- offences punishable by life imprisonment
+  max_months         INTEGER NOT NULL,
+  max_units          INTEGER NOT NULL
+);

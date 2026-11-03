@@ -30,6 +30,24 @@ type ActSummary struct {
 	Portfolios    string
 }
 
+type ActText struct {
+	ID                string
+	Sections          int64
+	Words             int64
+	Offences          int64
+	CivilPenalties    int64
+	StrictSections    int64
+	AbsoluteSections  int64
+	EvidentialBurdens int64
+	LegalBurdens      int64
+	InstrumentPowers  int64
+	RegulationPowers  int64
+	HenryViii         int64
+	Life              int64
+	MaxMonths         int64
+	MaxUnits          int64
+}
+
 type Administration struct {
 	TitleID          string
 	DepartmentID     string
@@ -65,6 +83,17 @@ type LoadRun struct {
 	RowsWritten      int64
 	Notes            string
 	FinishedAt       time.Time
+}
+
+type Penalty struct {
+	TitleID string
+	Seq     int64
+	Number  string
+	Civil   int64
+	Text    string
+	Life    int64
+	Months  int64
+	Units   int64
 }
 
 type PortfolioSummary struct {

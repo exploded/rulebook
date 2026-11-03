@@ -208,6 +208,51 @@ func (q *Queries) GovernmentStats(ctx context.Context) ([]GovernmentStatsRow, er
 	return items, nil
 }
 
+const insertActText = `-- name: InsertActText :exec
+INSERT INTO act_text (id, sections, words, offences, civil_penalties, strict_sections, absolute_sections,
+  evidential_burdens, legal_burdens, instrument_powers, regulation_powers, henry_viii, life, max_months, max_units)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertActTextParams struct {
+	ID                string
+	Sections          int64
+	Words             int64
+	Offences          int64
+	CivilPenalties    int64
+	StrictSections    int64
+	AbsoluteSections  int64
+	EvidentialBurdens int64
+	LegalBurdens      int64
+	InstrumentPowers  int64
+	RegulationPowers  int64
+	HenryViii         int64
+	Life              int64
+	MaxMonths         int64
+	MaxUnits          int64
+}
+
+func (q *Queries) InsertActText(ctx context.Context, arg InsertActTextParams) error {
+	_, err := q.db.ExecContext(ctx, insertActText,
+		arg.ID,
+		arg.Sections,
+		arg.Words,
+		arg.Offences,
+		arg.CivilPenalties,
+		arg.StrictSections,
+		arg.AbsoluteSections,
+		arg.EvidentialBurdens,
+		arg.LegalBurdens,
+		arg.InstrumentPowers,
+		arg.RegulationPowers,
+		arg.HenryViii,
+		arg.Life,
+		arg.MaxMonths,
+		arg.MaxUnits,
+	)
+	return err
+}
+
 const insertAdministration = `-- name: InsertAdministration :exec
 INSERT OR IGNORE INTO administration (title_id, department_id, department, portfolio, source_document_id)
 VALUES (?, ?, ?, ?, ?)
@@ -306,6 +351,36 @@ func (q *Queries) InsertLoadRun(ctx context.Context, arg InsertLoadRunParams) er
 		arg.RowsRead,
 		arg.RowsWritten,
 		arg.Notes,
+	)
+	return err
+}
+
+const insertPenalty = `-- name: InsertPenalty :exec
+INSERT INTO penalty (title_id, seq, number, civil, text, life, months, units)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertPenaltyParams struct {
+	TitleID string
+	Seq     int64
+	Number  string
+	Civil   int64
+	Text    string
+	Life    int64
+	Months  int64
+	Units   int64
+}
+
+func (q *Queries) InsertPenalty(ctx context.Context, arg InsertPenaltyParams) error {
+	_, err := q.db.ExecContext(ctx, insertPenalty,
+		arg.TitleID,
+		arg.Seq,
+		arg.Number,
+		arg.Civil,
+		arg.Text,
+		arg.Life,
+		arg.Months,
+		arg.Units,
 	)
 	return err
 }

@@ -139,3 +139,12 @@ SELECT department_id, department, portfolio FROM administration WHERE title_id =
 
 -- name: ListPortfolios :many
 SELECT * FROM portfolio_summary ORDER BY pages DESC, portfolio;
+
+-- name: InsertPenalty :exec
+INSERT INTO penalty (title_id, seq, number, civil, text, life, months, units)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: InsertActText :exec
+INSERT INTO act_text (id, sections, words, offences, civil_penalties, strict_sections, absolute_sections,
+  evidential_burdens, legal_burdens, instrument_powers, regulation_powers, henry_viii, life, max_months, max_units)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
