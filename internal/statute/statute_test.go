@@ -122,6 +122,60 @@ func TestParseActVolumes(t *testing.T) {
 	}
 }
 
+// An amending schedule, as in the Insolvency Law Reform Act 2016, inserts
+// text into another Act with the same heading styles as the Act's own. Only
+// headings in the contents are this Act's.
+func TestParseAmendingSchedule(t *testing.T) {
+	doc := []byte(`<html><body>
+<p class="TOC5">1 Short title</p>
+<p class="TOC6">Schedule 1—Amendments</p>
+<p class="TOC7">Part 1—Main amendments</p>
+<p class="TOC9">Bankruptcy Act 1966</p>
+<p class="TOC7">Part 2—Transitional provisions</p>
+<p class="TOC5">1 Definitions</p>
+<p class="ActHead5">1 Short title</p>
+<p class="subsection">This Act is the Example Act 2016.</p>
+<p class="ActHead6">Schedule 1—Amendments</p>
+<p class="ActHead7">Part 1—Main amendments</p>
+<p class="ActHead9">Bankruptcy Act 1966</p>
+<p class="ItemHead">1 After section 4</p>
+<p class="Item">Insert:</p>
+<p class="ActHead5">4A Insolvency Practice Schedule</p>
+<p class="subsection">Schedule 2 has effect.</p>
+<p class="ActHead6">Schedule 2—Insolvency Practice Schedule (Bankruptcy)</p>
+<p class="ActHead5">1-1 Object of this Schedule</p>
+<p class="ActHead7">Part 2—Transitional provisions</p>
+<p class="ActHead5">1 Definitions</p>
+<p class="Item">In this Part: old law means the Act as in force before.</p>
+</body></html>`)
+	ps, err := Parse(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, p := range ps {
+		got = append(got, p.Kind+" "+p.Number+" "+p.Heading)
+	}
+	want := []string{"section 1 Short title", "schedule  Schedule 1—Amendments", "clause 1 Definitions"}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	if body := strings.Join(ps[1].Body, " / "); !strings.Contains(body, "4A Insolvency Practice Schedule") {
+		t.Errorf("schedule body lacks the inserted text: %s", body)
+	}
+}
+
+func TestCriminalCodeNumbers(t *testing.T) {
+	ps, err := Parse([]byte(`<p class="ActHead6">Schedule—The Criminal Code</p>
+<p class="ActHead5">6.1 Strict liability</p><p class="subsection">(1) If a law that creates an offence provides that the offence is an offence of strict liability:</p>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ps) != 2 || ps[1].Number != "6.1" || ps[1].Heading != "Strict liability" {
+		t.Errorf("got %+v", ps)
+	}
+}
+
 // Older compilations, like the Surplus Revenue Act 1908's of 1999, mark
 // headings as bare <h1> to <h6> and start their notes with NotesSection.
 func TestParseOlderCompilation(t *testing.T) {

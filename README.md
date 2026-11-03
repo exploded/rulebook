@@ -130,7 +130,20 @@ pause, at one request an Act. Notes on the EPUBs:
   `ActHead4` subdivision, `ActHead5` section, `ActHead6` schedule. Numbered
   `ActHead5` headings after a schedule are its clauses.
 - Section numbers can be hyphenated (`6-5`), written with a non-breaking
-  hyphen (U+2011).
+  hyphen (U+2011), or dotted in the Criminal Code (`6.1`).
+- Compilations prepared before about 2005 mark headings as bare `<h1>` to
+  `<h6>` with no class, and start their notes at a `NotesSection`
+  paragraph. The parser reads `<h5>` as `ActHead5`, and so on.
+- Amending schedules insert text into other Acts with the same heading
+  styles. The inserted text follows an `Item` ending in a colon ("Insert:")
+  and runs to the next `ItemHead` or the next of the Act's own headings.
+  The contents (`TOCN`) list only the Act's own headings, at the same level
+  N as their `ActHeadN` style.
+- Some Acts never compiled (Loan Acts, Constitution Alteration Acts) come
+  as EPUBs converted from print, with no heading styles: 34 of the 1,262
+  principal Acts in force in November 2026. They load no sections.
+- Check: on 4 November 2026, 1,250 of 1,262 Acts gave exactly as many
+  sections and clauses as their contents list.
 
 ### Departments
 

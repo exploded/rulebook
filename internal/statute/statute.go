@@ -91,7 +91,8 @@ var (
 	// The heading is optional: ss 86 and 87 of the Constitution, long
 	// spent, keep only a number. Some Acts number sections by Division:
 	// 6-5, 995-1.
-	sectionRE = regexp.MustCompile(`^(\d+[A-Z]*(?:-\d+[A-Z]*)?)\.?(?:\s+(.*))?$`)
+	// The Criminal Code numbers them by Division with a point: 6.1.
+	sectionRE = regexp.MustCompile(`^(\d+[A-Z]*(?:[-.]\d+[A-Z]*)?)\.?(?:\s+(.*))?$`)
 	divRE     = regexp.MustCompile(`^(?i:(chapter|part))\s+([0-9IVXLC]+[A-Z]*(?:-[0-9]+[A-Z]*)?)\.?\s*[—–-]?\s*(.*)$`)
 )
 
@@ -131,7 +132,27 @@ func parse(docs [][]byte, covering bool) ([]Provision, error) {
 		part, partT    string
 		inChapters     bool
 		sched          string // heading of the schedule we are in
+		inserting      bool   // in text an amending item inserts in another Act
 	)
+	// An amending schedule's items insert text into other Acts ("Insert:",
+	// "Repeal the section, substitute:"), with the same heading styles as
+	// the Act's own. That text runs to the next item, or the next heading
+	// listed in the contents, which lists only the Act's own headings: an
+	// ActHeadN heading is listed as TOCN, so contents keys are N and text.
+	contents := map[string]bool{}
+	volumes := make([][]para, len(docs))
+	for i, doc := range docs {
+		paras, err := paragraphs(doc)
+		if err != nil {
+			return nil, err
+		}
+		for _, p := range paras {
+			if level, ok := strings.CutPrefix(p.class, "TOC"); ok {
+				contents[level+" "+p.text] = true
+			}
+		}
+		volumes[i] = paras
+	}
 	flush := func() {
 		if cur != nil {
 			out = append(out, *cur)
@@ -144,11 +165,7 @@ func parse(docs [][]byte, covering bool) ([]Provision, error) {
 		chapter, chapT, part, partT = "", "", "", ""
 		sched = cur.Heading
 	}
-	for _, doc := range docs {
-		paras, err := paragraphs(doc)
-		if err != nil {
-			return nil, err
-		}
+	for _, paras := range volumes {
 		started := false
 	volume:
 		for _, p := range paras {
@@ -165,6 +182,21 @@ func parse(docs [][]byte, covering bool) ([]Provision, error) {
 				started = true
 			}
 			if skipped(p.class) || p.text == "" {
+				continue
+			}
+			if inserting {
+				level, isHead := strings.CutPrefix(p.class, "ActHead")
+				if p.class == "ItemHead" || isHead && contents[level+" "+p.text] {
+					inserting = false
+				}
+			}
+			if !inserting && sched != "" && p.class == "Item" && strings.HasSuffix(p.text, ":") {
+				inserting = true
+			}
+			if inserting {
+				if cur != nil {
+					cur.Body = append(cur.Body, p.text)
+				}
 				continue
 			}
 			switch p.class {
