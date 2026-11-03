@@ -8,7 +8,8 @@ import (
 
 type homePage struct {
 	constitutionPage
-	Statute db.StatuteTotalsRow
+	Statute  db.StatuteTotalsRow
+	Offences db.OffenceTotalsRow
 }
 
 func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
@@ -23,5 +24,10 @@ func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, err)
 		return
 	}
-	h.render(w, "home.html", homePage{c, t})
+	o, err := h.q.OffenceTotals(r.Context())
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	h.render(w, "home.html", homePage{c, t, o})
 }

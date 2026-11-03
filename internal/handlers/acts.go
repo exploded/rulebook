@@ -245,6 +245,9 @@ type actPage struct {
 	AmendedBy    []db.ListAmendedByRow
 	Amends       []db.ListAmendsRow
 	Departments  []db.ListAdministrationRow
+	Text         *db.ActText // nil if the text isn't loaded
+	Penalties    []db.Penalty
+	Scanned      bool // a principal Act in force whose text couldn't be read
 }
 
 func (h *Handler) act(w http.ResponseWriter, r *http.Request) {
@@ -284,6 +287,23 @@ func (h *Handler) act(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := actPage{Crumbs: []crumb{{"Home", "/"}, {"The statute book", "/statute-book"}, {"Acts", "/acts"}}, Act: a, Title: t, AmendedBy: by, Amends: amends, Departments: deps}
+	if x, err := h.q.GetActText(ctx, id); err == nil {
+		if p.Penalties, err = h.q.ListPenalties(ctx, id); err != nil {
+			h.fail(w, err)
+			return
+		}
+		p.Text = &x
+	} else if err != sql.ErrNoRows {
+		h.fail(w, err)
+		return
+	}
+	if p.Text == nil && a.IsPrincipal == 1 && a.InForce == 1 {
+		// Only once the text has been analysed: an older database has none.
+		if err := h.conn.QueryRowContext(ctx, "SELECT EXISTS (SELECT 1 FROM act_text)").Scan(&p.Scanned); err != nil {
+			h.fail(w, err)
+			return
+		}
+	}
 	var most int64
 	for _, v := range vs {
 		if v.Pages.Valid {

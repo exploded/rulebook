@@ -18,6 +18,38 @@
 </dl>
 <p class="small"><a href="https://www.legislation.gov.au/{{.Act.ID}}/latest/text">Read it on the Federal Register of Legislation</a>{{with .Title.BillUri}} · <a href="{{.}}">The Bill in Parliament</a>{{end}}</p>
 
+{{with .Text}}
+<h2 id="offences">Offences and powers</h2>
+<dl class="facts">
+  <div><dt>Offences</dt><dd>{{count .Offences}}</dd></div>
+  <div><dt>Civil penalties</dt><dd>{{count .CivilPenalties}}</dd></div>
+  {{if .Offences}}<div><dt>Longest imprisonment</dt><dd>{{if .Life}}Life ({{count .Life}} {{if eq .Life 1}}offence{{else}}offences{{end}}){{else}}{{term .MaxMonths}}{{end}}</dd></div>
+  <div><dt>Largest fine</dt><dd>{{if .MaxUnits}}{{count .MaxUnits}} penalty units{{else}}–{{end}}</dd></div>{{end}}
+  <div><dt>Sections declaring strict liability</dt><dd>{{count .StrictSections}}{{with .AbsoluteSections}} <span class="muted small">(and {{count .}} absolute)</span>{{end}}</dd></div>
+  <div><dt>Burdens on a defendant</dt><dd>{{count (plus .EvidentialBurdens .LegalBurdens)}}{{with .LegalBurdens}} <span class="muted small">({{count .}} legal)</span>{{end}}</dd></div>
+  <div><dt>Powers to make instruments</dt><dd>{{count .InstrumentPowers}}</dd></div>
+  <div><dt>Powers to make regulations</dt><dd>{{count .RegulationPowers}}</dd></div>
+  {{if .HenryViii}}<div><dt>Instruments that may modify the Act</dt><dd>{{count .HenryViii}}</dd></div>{{end}}
+</dl>
+<p class="small muted">Counted from the Act's latest compilation, {{count .Words}} words. <a href="/offences">All Acts</a> · <a href="/methodology#offences">How we count</a></p>
+{{else}}{{if .Scanned}}
+<h2 id="offences">Offences and powers</h2>
+<p class="muted">The Register publishes this Act's text as a scan of the printed Act, without the headings we use to read it, so we can't count its offences or powers.</p>
+{{end}}{{end}}
+{{if .Penalties}}
+<details class="recon-more penalties">
+  <summary><span class="recon-show">Every penalty in the Act ({{count (int64 (len .Penalties))}})</span></summary>
+  <div class="scroll">
+  <table class="data">
+    <thead><tr><th>Provision</th><th>Kind</th><th>Penalty, as the Act states it</th></tr></thead>
+    <tbody>
+      {{range .Penalties}}<tr><th class="date">{{or .Number "–"}}</th><td>{{if eq .Civil 1}}Civil penalty{{else}}Offence{{end}}</td><td>{{or .Text "Not stated beside the provision"}}</td></tr>{{end}}
+    </tbody>
+  </table>
+  </div>
+</details>
+{{end}}
+
 {{if .Compilations}}
 <h2 id="compilations">Compilations</h2>
 <p class="muted small">Each row is a compilation the Register publishes: the Act's text with every amendment to that date incorporated, and the period it was in force.{{with .Uncompiled}} Another {{count .}} {{if eq . 1}}period{{else}}periods{{end}}, mostly before 2004, {{if eq . 1}}has{{else}}have{{end}} no compilation; the amending Acts below show when each change took effect.{{end}}</p>

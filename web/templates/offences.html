@@ -1,0 +1,93 @@
+{{define "title"}}Offences and penalties{{end}}
+{{define "description"}}The offences and civil penalties in Commonwealth Acts in force: how many, how severe, which carry strict liability, and which Acts create the most.{{end}}
+
+{{define "content"}}
+{{template "crumbs" .Crumbs}}
+<p class="kicker">The statute book</p>
+<h1>Offences and penalties</h1>
+<p class="lede">The {{count .Totals.Acts}} principal Acts in force whose text we can read create {{count .Totals.Offences}} offences and {{count .Totals.CivilPenalties}} civil penalties. {{count .Totals.WithOffences}} of them create at least one offence.</p>
+
+<dl class="stats">
+  <div><dt>Offences</dt><dd>{{count .Totals.Offences}}</dd></div>
+  <div><dt>Civil penalties</dt><dd>{{count .Totals.CivilPenalties}}</dd></div>
+  <div><dt>Offences punishable by life imprisonment</dt><dd>{{count .Totals.Life}}</dd></div>
+  <div><dt>Sections declaring strict liability</dt><dd>{{count .Totals.StrictSections}}</dd></div>
+</dl>
+<p class="small muted">An offence is a penalty the Act sets for breaching one of its provisions, counted once for each provision. A civil penalty is a sum a court can order paid without a criminal conviction. Counted from each Act's latest compilation on the Federal Register of Legislation{{with .Unreadable}}; the text of {{count .}} of the {{count $.InForcePrin}} principal Acts in force, mostly Loan Acts, is a scan of the printed Act and can't be read{{end}}. <a href="/methodology#offences">How we count</a> · <a href="/offences.csv">Download every penalty (CSV)</a></p>
+
+<h2 id="severity">How severe</h2>
+<p>Offences by the longest term of imprisonment the Act sets. An offence with a fine but no term of imprisonment counts as a fine only.</p>
+<div class="scroll">
+<table class="data bands">
+  <thead><tr><th>Longest imprisonment</th><th class="num">Offences</th><th class="num">Share</th><th class="share"></th></tr></thead>
+  <tbody>
+    {{range .Bands}}
+    <tr>
+      <th>{{.Name}}</th>
+      <td class="num">{{count .Offences}}</td>
+      <td class="num">{{f1 .Pct}}%</td>
+      <td class="share"><span class="meter"><span style="width: {{f1 .Share}}%"></span></span></td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+</div>
+<p class="small muted">Where a penalty differs for individuals and bodies corporate, we take the longest term and the largest fine. Fines are in penalty units, whose value section 4AA of the <cite>Crimes Act 1914</cite> sets. "No size found" covers penalties stated another way, such as in dollars or by a formula.</p>
+
+<h2 id="liability">Fault and the burden of proof</h2>
+<p>For most offences the prosecution must prove fault, such as intention or recklessness. An Act can say otherwise, and the Criminal Code sets out what each departure means.</p>
+<dl class="stats">
+  <div><dt>Sections declaring strict liability</dt><dd>{{count .Totals.StrictSections}}</dd></div>
+  <div><dt>Sections declaring absolute liability</dt><dd>{{count .Totals.AbsoluteSections}}</dd></div>
+  <div><dt>Evidential burdens on a defendant</dt><dd>{{count .Totals.EvidentialBurdens}}</dd></div>
+  <div><dt>Legal burdens on a defendant</dt><dd>{{count .Totals.LegalBurdens}}</dd></div>
+</dl>
+<ul class="small">
+  <li><strong>Strict liability</strong> (Criminal Code s 6.1): the prosecution needn't prove fault, but the defendant can argue an honest and reasonable mistake of fact.</li>
+  <li><strong>Absolute liability</strong> (s 6.2): the prosecution needn't prove fault, and the mistake of fact defence isn't available.</li>
+  <li><strong>Evidential burden</strong> (s 13.3): the defendant must point to evidence that suggests a reasonable possibility that an exception or defence applies.</li>
+  <li><strong>Legal burden</strong> (s 13.4): the defendant must prove the matter on the balance of probabilities.</li>
+</ul>
+
+<h2 id="most">The Acts with the most offences</h2>
+<div class="scroll">
+<table class="data">
+  <thead><tr><th>Act</th><th class="num">Offences</th><th class="num">Civil penalties</th><th class="num">Strict liability sections</th><th class="num">Longest imprisonment</th></tr></thead>
+  <tbody>
+    {{range .Most}}<tr><th><a href="/act/{{.ID}}#offences">{{.Name}}</a></th><td class="num">{{count .Offences}}</td><td class="num">{{count .CivilPenalties}}</td><td class="num">{{count .StrictSections}}</td><td class="num">{{if .Life}}Life{{else}}{{term .MaxMonths}}{{end}}</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+
+<h2 id="civil">The Acts with the most civil penalties</h2>
+<div class="scroll">
+<table class="data">
+  <thead><tr><th>Act</th><th class="num">Civil penalties</th><th class="num">Offences</th></tr></thead>
+  <tbody>
+    {{range .MostCivil}}<tr><th><a href="/act/{{.ID}}#offences">{{.Name}}</a></th><td class="num">{{count .CivilPenalties}}</td><td class="num">{{count .Offences}}</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+
+{{if .Portfolios}}
+<h2 id="portfolios">By portfolio</h2>
+<p>Offences and civil penalties in the principal Acts each portfolio administers. An Act administered by more than one portfolio counts in each.</p>
+<div class="scroll">
+<table class="data">
+  <thead><tr><th>Portfolio</th><th class="num">Acts with text</th><th class="num">Offences</th><th class="num">Civil penalties</th><th class="num">Strict liability sections</th></tr></thead>
+  <tbody>
+    {{range .Portfolios}}<tr><th><a href="/acts?portfolio={{.Portfolio}}&amp;kind=principal">{{.Portfolio}}</a></th><td class="num">{{count .Acts}}</td><td class="num">{{count .Offences}}</td><td class="num">{{count .CivilPenalties}}</td><td class="num">{{count .StrictSections}}</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+{{end}}
+
+<h2 id="delegation">Powers to make further law</h2>
+<p>Acts let ministers and agencies make legislative instruments, such as regulations and rules, which have the force of law without passing through Parliament. Parliament can disallow most of them.</p>
+<dl class="stats">
+  <div><dt>Powers to make instruments</dt><dd>{{count .Totals.InstrumentPowers}}</dd></div>
+  <div><dt>Powers to make regulations</dt><dd>{{count .Totals.RegulationPowers}}</dd></div>
+  <div><dt>Instruments that may modify the Act</dt><dd>{{count .Totals.HenryViii}}</dd></div>
+</dl>
+<p class="small muted">A power to make instruments is each time an Act says something may be done "by legislative instrument". A power to make regulations is each provision saying the Governor-General "may make regulations". The last figure counts provisions letting regulations or another instrument modify or amend the Act itself, known as Henry VIII clauses.</p>
+{{end}}

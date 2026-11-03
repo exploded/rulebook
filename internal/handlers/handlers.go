@@ -44,6 +44,8 @@ func New(conn *sql.DB, templates, static fs.FS) (*Handler, error) {
 		"lower":  strings.ToLower,
 		"add2":   func(a, b float64) float64 { return a + b },
 		"sub":    func(a, b float64) float64 { return a - b },
+		"term":   term,
+		"plus":   func(a, b int64) int64 { return a + b },
 		"trimS":  func(s string) string { return strings.TrimPrefix(s, "s ") },
 		"pctCSS": func(f float64) template.CSS { return template.CSS(strconv.FormatFloat(f, 'f', 3, 64) + "%") },
 		// basis is a section tile's minimum width in pixels: wide enough for
@@ -64,7 +66,7 @@ func New(conn *sql.DB, templates, static fs.FS) (*Handler, error) {
 		},
 	}
 	h := &Handler{conn: conn, q: db.New(conn), pages: map[string]*template.Template{}}
-	for _, page := range []string{"home.html", "constitution.html", "provision.html", "referendums.html", "about.html", "methodology.html", "sources.html", "acts.html", "act.html", "statute.html"} {
+	for _, page := range []string{"home.html", "constitution.html", "provision.html", "referendums.html", "about.html", "methodology.html", "sources.html", "acts.html", "act.html", "statute.html", "offences.html"} {
 		t, err := template.New("").Funcs(funcs).ParseFS(templates, "layout.html", "partials.html", page)
 		if err != nil {
 			return nil, err
@@ -103,6 +105,8 @@ func (h *Handler) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /acts.csv", h.actsCSV)
 	mux.HandleFunc("GET /act/{id}", h.act)
 	mux.HandleFunc("GET /statute-book", h.statuteBook)
+	mux.HandleFunc("GET /offences", h.offences)
+	mux.HandleFunc("GET /offences.csv", h.offencesCSV)
 	mux.HandleFunc("GET /statute-book.csv", h.statuteBookCSV)
 	mux.HandleFunc("GET /about", h.static("about.html"))
 	mux.HandleFunc("GET /methodology", h.static("methodology.html"))

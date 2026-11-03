@@ -11,6 +11,56 @@ import (
 	"time"
 )
 
+const allPenalties = `-- name: AllPenalties :many
+SELECT p.title_id, s.name, p.number, p.civil, p.life, p.months, p.units, p.text
+FROM penalty p JOIN act_summary s ON s.id = p.title_id
+WHERE s.in_force = 1
+ORDER BY s.name, p.title_id, p.seq, p.rowid
+`
+
+type AllPenaltiesRow struct {
+	TitleID string
+	Name    string
+	Number  string
+	Civil   int64
+	Life    int64
+	Months  int64
+	Units   int64
+	Text    string
+}
+
+func (q *Queries) AllPenalties(ctx context.Context) ([]AllPenaltiesRow, error) {
+	rows, err := q.db.QueryContext(ctx, allPenalties)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AllPenaltiesRow
+	for rows.Next() {
+		var i AllPenaltiesRow
+		if err := rows.Scan(
+			&i.TitleID,
+			&i.Name,
+			&i.Number,
+			&i.Civil,
+			&i.Life,
+			&i.Months,
+			&i.Units,
+			&i.Text,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deleteAdministration = `-- name: DeleteAdministration :exec
 DELETE FROM administration
 `
@@ -91,6 +141,33 @@ func (q *Queries) GetActSummary(ctx context.Context, id string) (ActSummary, err
 		&i.Party,
 		&i.Side,
 		&i.Portfolios,
+	)
+	return i, err
+}
+
+const getActText = `-- name: GetActText :one
+SELECT id, sections, words, offences, civil_penalties, strict_sections, absolute_sections, evidential_burdens, legal_burdens, instrument_powers, regulation_powers, henry_viii, life, max_months, max_units FROM act_text WHERE id = ?
+`
+
+func (q *Queries) GetActText(ctx context.Context, id string) (ActText, error) {
+	row := q.db.QueryRowContext(ctx, getActText, id)
+	var i ActText
+	err := row.Scan(
+		&i.ID,
+		&i.Sections,
+		&i.Words,
+		&i.Offences,
+		&i.CivilPenalties,
+		&i.StrictSections,
+		&i.AbsoluteSections,
+		&i.EvidentialBurdens,
+		&i.LegalBurdens,
+		&i.InstrumentPowers,
+		&i.RegulationPowers,
+		&i.HenryViii,
+		&i.Life,
+		&i.MaxMonths,
+		&i.MaxUnits,
 	)
 	return i, err
 }
@@ -752,6 +829,42 @@ func (q *Queries) ListLoadRuns(ctx context.Context) ([]ListLoadRunsRow, error) {
 	return items, nil
 }
 
+const listPenalties = `-- name: ListPenalties :many
+SELECT title_id, seq, number, civil, text, life, months, units FROM penalty WHERE title_id = ? ORDER BY seq, rowid
+`
+
+func (q *Queries) ListPenalties(ctx context.Context, titleID string) ([]Penalty, error) {
+	rows, err := q.db.QueryContext(ctx, listPenalties, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Penalty
+	for rows.Next() {
+		var i Penalty
+		if err := rows.Scan(
+			&i.TitleID,
+			&i.Seq,
+			&i.Number,
+			&i.Civil,
+			&i.Text,
+			&i.Life,
+			&i.Months,
+			&i.Units,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPortfolios = `-- name: ListPortfolios :many
 SELECT portfolio, acts, principal, shared, pages FROM portfolio_summary ORDER BY pages DESC, portfolio
 `
@@ -970,6 +1083,253 @@ func (q *Queries) MostAmendedActs(ctx context.Context, limit int64) ([]ActSummar
 			&i.Party,
 			&i.Side,
 			&i.Portfolios,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const mostCivilPenalties = `-- name: MostCivilPenalties :many
+SELECT s.id, s.name, x.offences, x.civil_penalties, x.strict_sections, x.life, x.max_months, x.max_units
+FROM act_text x JOIN act_summary s ON s.id = x.id
+WHERE s.in_force = 1 AND x.civil_penalties > 0
+ORDER BY x.civil_penalties DESC, s.name LIMIT ?
+`
+
+type MostCivilPenaltiesRow struct {
+	ID             string
+	Name           string
+	Offences       int64
+	CivilPenalties int64
+	StrictSections int64
+	Life           int64
+	MaxMonths      int64
+	MaxUnits       int64
+}
+
+func (q *Queries) MostCivilPenalties(ctx context.Context, limit int64) ([]MostCivilPenaltiesRow, error) {
+	rows, err := q.db.QueryContext(ctx, mostCivilPenalties, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MostCivilPenaltiesRow
+	for rows.Next() {
+		var i MostCivilPenaltiesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Offences,
+			&i.CivilPenalties,
+			&i.StrictSections,
+			&i.Life,
+			&i.MaxMonths,
+			&i.MaxUnits,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const mostOffences = `-- name: MostOffences :many
+SELECT s.id, s.name, x.offences, x.civil_penalties, x.strict_sections, x.life, x.max_months, x.max_units
+FROM act_text x JOIN act_summary s ON s.id = x.id
+WHERE s.in_force = 1 AND x.offences > 0
+ORDER BY x.offences DESC, s.name LIMIT ?
+`
+
+type MostOffencesRow struct {
+	ID             string
+	Name           string
+	Offences       int64
+	CivilPenalties int64
+	StrictSections int64
+	Life           int64
+	MaxMonths      int64
+	MaxUnits       int64
+}
+
+func (q *Queries) MostOffences(ctx context.Context, limit int64) ([]MostOffencesRow, error) {
+	rows, err := q.db.QueryContext(ctx, mostOffences, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MostOffencesRow
+	for rows.Next() {
+		var i MostOffencesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Offences,
+			&i.CivilPenalties,
+			&i.StrictSections,
+			&i.Life,
+			&i.MaxMonths,
+			&i.MaxUnits,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const offenceBands = `-- name: OffenceBands :many
+SELECT CAST(CASE WHEN p.life = 1 THEN 7 WHEN p.months > 120 THEN 6 WHEN p.months > 60 THEN 5
+            WHEN p.months > 24 THEN 4 WHEN p.months > 12 THEN 3 WHEN p.months > 0 THEN 2
+            WHEN p.units > 0 THEN 1 ELSE 0 END AS INTEGER) AS band,
+       CAST(COUNT(*) AS INTEGER) AS offences
+FROM penalty p JOIN act_summary s ON s.id = p.title_id
+WHERE s.in_force = 1 AND p.civil = 0
+GROUP BY band ORDER BY band DESC
+`
+
+type OffenceBandsRow struct {
+	Band     int64
+	Offences int64
+}
+
+// Offences in Acts in force by the longest imprisonment they carry: 7 life,
+// 6 more than 10 years, 5 more than 5, 4 more than 2, 3 more than 1, 2 up
+// to 1 year, 1 a fine only, 0 no size found.
+func (q *Queries) OffenceBands(ctx context.Context) ([]OffenceBandsRow, error) {
+	rows, err := q.db.QueryContext(ctx, offenceBands)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OffenceBandsRow
+	for rows.Next() {
+		var i OffenceBandsRow
+		if err := rows.Scan(&i.Band, &i.Offences); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const offenceTotals = `-- name: OffenceTotals :one
+SELECT CAST(COUNT(*) AS INTEGER) AS acts,
+       CAST(COALESCE(SUM(x.offences > 0), 0) AS INTEGER) AS with_offences,
+       CAST(COALESCE(SUM(x.civil_penalties > 0), 0) AS INTEGER) AS with_civil,
+       CAST(COALESCE(SUM(x.offences), 0) AS INTEGER) AS offences,
+       CAST(COALESCE(SUM(x.civil_penalties), 0) AS INTEGER) AS civil_penalties,
+       CAST(COALESCE(SUM(x.strict_sections), 0) AS INTEGER) AS strict_sections,
+       CAST(COALESCE(SUM(x.absolute_sections), 0) AS INTEGER) AS absolute_sections,
+       CAST(COALESCE(SUM(x.evidential_burdens), 0) AS INTEGER) AS evidential_burdens,
+       CAST(COALESCE(SUM(x.legal_burdens), 0) AS INTEGER) AS legal_burdens,
+       CAST(COALESCE(SUM(x.instrument_powers), 0) AS INTEGER) AS instrument_powers,
+       CAST(COALESCE(SUM(x.regulation_powers), 0) AS INTEGER) AS regulation_powers,
+       CAST(COALESCE(SUM(x.henry_viii), 0) AS INTEGER) AS henry_viii,
+       CAST(COALESCE(SUM(x.life), 0) AS INTEGER) AS life
+FROM act_text x JOIN act_summary s ON s.id = x.id
+WHERE s.in_force = 1
+`
+
+type OffenceTotalsRow struct {
+	Acts              int64
+	WithOffences      int64
+	WithCivil         int64
+	Offences          int64
+	CivilPenalties    int64
+	StrictSections    int64
+	AbsoluteSections  int64
+	EvidentialBurdens int64
+	LegalBurdens      int64
+	InstrumentPowers  int64
+	RegulationPowers  int64
+	HenryViii         int64
+	Life              int64
+}
+
+func (q *Queries) OffenceTotals(ctx context.Context) (OffenceTotalsRow, error) {
+	row := q.db.QueryRowContext(ctx, offenceTotals)
+	var i OffenceTotalsRow
+	err := row.Scan(
+		&i.Acts,
+		&i.WithOffences,
+		&i.WithCivil,
+		&i.Offences,
+		&i.CivilPenalties,
+		&i.StrictSections,
+		&i.AbsoluteSections,
+		&i.EvidentialBurdens,
+		&i.LegalBurdens,
+		&i.InstrumentPowers,
+		&i.RegulationPowers,
+		&i.HenryViii,
+		&i.Life,
+	)
+	return i, err
+}
+
+const offencesByPortfolio = `-- name: OffencesByPortfolio :many
+SELECT a.portfolio,
+       CAST(COUNT(*) AS INTEGER) AS acts,
+       CAST(SUM(x.offences) AS INTEGER) AS offences,
+       CAST(SUM(x.civil_penalties) AS INTEGER) AS civil_penalties,
+       CAST(SUM(x.strict_sections) AS INTEGER) AS strict_sections
+FROM (SELECT DISTINCT title_id, portfolio FROM administration) a
+JOIN act_text x ON x.id = a.title_id
+JOIN act_summary s ON s.id = x.id
+WHERE s.in_force = 1
+GROUP BY a.portfolio
+ORDER BY offences DESC, a.portfolio
+`
+
+type OffencesByPortfolioRow struct {
+	Portfolio      string
+	Acts           int64
+	Offences       int64
+	CivilPenalties int64
+	StrictSections int64
+}
+
+func (q *Queries) OffencesByPortfolio(ctx context.Context) ([]OffencesByPortfolioRow, error) {
+	rows, err := q.db.QueryContext(ctx, offencesByPortfolio)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OffencesByPortfolioRow
+	for rows.Next() {
+		var i OffencesByPortfolioRow
+		if err := rows.Scan(
+			&i.Portfolio,
+			&i.Acts,
+			&i.Offences,
+			&i.CivilPenalties,
+			&i.StrictSections,
 		); err != nil {
 			return nil, err
 		}

@@ -435,3 +435,7 @@ table.acts tbody th { min-width: 260px; }
 table.compilations .share { width: 40%; min-width: 120px; }
 .link-list { columns: 2 320px; column-gap: 32px; padding-left: 18px; }
 .link-list li { margin: 3px 0; break-inside: avoid; }
+
+/* An Act's penalties: the provision and kind stay narrow, the penalty's words take the rest. */
+.penalties table th:first-child, .penalties table td:nth-child(2) { width: 1%; min-width: 0; white-space: nowrap; }
+.penalties table td:last-child { min-width: 11em; }
