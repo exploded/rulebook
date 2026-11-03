@@ -11,12 +11,15 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -99,7 +102,9 @@ func (c *Client) Get(ctx context.Context, url string) ([]byte, error) {
 			}
 		}
 		body, err = c.fetch(ctx, url)
-		if err == nil {
+		var se *StatusError
+		if err == nil || errors.As(err, &se) && se.Code >= 400 && se.Code < 500 {
+			// Success, or a client error that a retry won't fix.
 			break
 		}
 	}
@@ -127,10 +132,18 @@ func (c *Client) fetch(ctx context.Context, url string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%s: HTTP %d", url, resp.StatusCode)
+		return nil, &StatusError{url, resp.StatusCode}
 	}
 	return io.ReadAll(resp.Body)
 }
+
+// StatusError is a response other than 200 OK.
+type StatusError struct {
+	URL  string
+	Code int
+}
+
+func (e *StatusError) Error() string { return fmt.Sprintf("%s: HTTP %d", e.URL, e.Code) }
 
 func (c *Client) cachePath(url string) string {
 	if c.CacheDir == "" {
@@ -218,6 +231,32 @@ type Version struct {
 	RegisterID        string   `json:"registerId"`
 	CompilationNumber string   `json:"compilationNumber"`
 	Reasons           []Reason `json:"reasons"`
+}
+
+// SortVersions orders one title's compilations by start date, then by
+// number: 12 before 12A before 13. The position is each one's seq.
+func SortVersions(vs []Version) {
+	slices.SortStableFunc(vs, func(a, b Version) int {
+		if c := strings.Compare(a.Start, b.Start); c != 0 {
+			return c
+		}
+		an, as := splitNumber(a.CompilationNumber)
+		bn, bs := splitNumber(b.CompilationNumber)
+		if an != bn {
+			return an - bn
+		}
+		return strings.Compare(as, bs)
+	})
+}
+
+// splitNumber splits a compilation number such as 12A into 12 and "A".
+func splitNumber(s string) (int, string) {
+	i := 0
+	for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+		i++
+	}
+	n, _ := strconv.Atoi(s[:i])
+	return n, s[i:]
 }
 
 // Reason names a title that changed this compilation.
@@ -420,4 +459,53 @@ func Pages(docs []Document) map[string]int64 {
 		}
 	}
 	return out
+}
+
+// Department is an organisation that administers a title.
+type Department struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Portfolio string `json:"portfolio"`
+}
+
+// Administered is a title with the departments that administer it.
+type Administered struct {
+	ID          string       `json:"id"`
+	Departments []Department `json:"administeringDepartments"`
+}
+
+// AdministeredActsPageURL lists Acts in force with their administering
+// departments, in id order, top at a time from skip. Only titles in force
+// have current departments.
+func AdministeredActsPageURL(skip, top int) string {
+	return BaseURL + "/Titles?" + query(url.Values{
+		"$filter":  {"collection eq 'Act' and isInForce eq true"},
+		"$orderby": {"id"},
+		"$skip":    {fmt.Sprint(skip)},
+		"$top":     {fmt.Sprint(top)},
+		"$select":  {"id"},
+		"$expand":  {"administeringDepartments"},
+	})
+}
+
+// ListAdministeredActs fetches every Act in force with its departments.
+func (c *Client) ListAdministeredActs(ctx context.Context, pageSize int, raw *[]byte) ([]Administered, error) {
+	var all []Administered
+	for skip := 0; ; skip += pageSize {
+		b, err := c.Get(ctx, AdministeredActsPageURL(skip, pageSize))
+		if err != nil {
+			return nil, err
+		}
+		*raw = append(*raw, b...)
+		var page struct {
+			Value []Administered `json:"value"`
+		}
+		if err := json.Unmarshal(b, &page); err != nil {
+			return nil, fmt.Errorf("administered acts page at %d: %w", skip, err)
+		}
+		all = append(all, page.Value...)
+		if len(page.Value) < pageSize {
+			return all, nil
+		}
+	}
 }

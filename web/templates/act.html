@@ -10,6 +10,7 @@
   <div><dt>Made</dt><dd>{{date .Act.MakingDate}}</dd></div>
   <div><dt>Government</dt><dd>{{if .Act.PrimeMinister}}{{.Act.PrimeMinister}} ({{.Act.Party}}){{else}}–{{end}}</dd></div>
   {{if .Act.EndedOn}}<div><dt>{{.Act.Status}}</dt><dd>{{date .Act.EndedOn}}{{with .Title.EndedByName}} by {{if $.Title.EndedBy}}<a href="/act/{{$.Title.EndedBy}}">{{.}}</a>{{else}}{{.}}{{end}}{{end}}</dd></div>{{end}}
+  {{if .Departments}}<div><dt>Administered by</dt><dd>{{range $i, $d := .Departments}}{{if $i}}; {{end}}<a href="/acts?portfolio={{$d.Portfolio}}">{{$d.Department}}</a>{{end}}</dd></div>{{end}}
   <div><dt>Pages</dt><dd>{{nint .Act.Pages}}{{if and .Act.Pages.Valid .Act.FirstPages.Valid}} <span class="muted small">({{nint .Act.FirstPages}} as made)</span>{{end}}</dd></div>
   <div><dt>Amended by</dt><dd>{{count .Act.AmendedBy}} Acts</dd></div>
   <div><dt>Last changed</dt><dd>{{if .Act.LastChanged}}{{date .Act.LastChanged}}{{else}}Never{{end}}</dd></div>
@@ -18,15 +19,15 @@
 <p class="small"><a href="https://www.legislation.gov.au/{{.Act.ID}}/latest/text">Read it on the Federal Register of Legislation</a>{{with .Title.BillUri}} · <a href="{{.}}">The Bill in Parliament</a>{{end}}</p>
 
 {{if .Compilations}}
-<h2 id="compilations">Compilations</h2>
-<p class="muted small">A compilation is the Act's text as in force for a period. Each new compilation incorporates the amendments made since the last.</p>
+<h2 id="compilations">Versions</h2>
+<p class="muted small">Each row is a period in which the Act's text stayed the same. For most, the Register publishes a compilation: the text with every amendment to that date incorporated. Some periods, mostly before 2004, have no compilation.</p>
 <div class="scroll">
 <table class="data compilations">
-  <thead><tr><th class="num">No.</th><th>In force</th><th class="num">Pages</th><th class="share"></th></tr></thead>
+  <thead><tr><th class="num">Compilation</th><th>In force</th><th class="num">Pages</th><th class="share"></th></tr></thead>
   <tbody>
     {{range .Compilations}}
     <tr>
-      <td class="num">{{.CompilationNumber}}</td>
+      <td class="num">{{or .CompilationNumber "–"}}</td>
       <td class="date">{{date .StartDate}} – {{if .EndDate}}{{date .EndDate}}{{else}}today{{end}}</td>
       <td class="num">{{nint .Pages}}</td>
       <td class="share"><span class="meter"><span style="width: {{f1 .Share}}%"></span></span></td>
@@ -41,9 +42,9 @@
 <h2 id="amended-by">Amended by</h2>
 <div class="scroll">
 <table class="data">
-  <thead><tr><th>Act</th><th>Made</th><th class="num">First in compilation</th></tr></thead>
+  <thead><tr><th>Act</th><th>Made</th><th>First took effect</th></tr></thead>
   <tbody>
-    {{range .AmendedBy}}<tr><th><a href="/act/{{.ByTitleID}}">{{.ByName}}</a></th><td class="date">{{date .Made}}</td><td class="num">{{.FirstCompilation}}</td></tr>{{end}}
+    {{range .AmendedBy}}<tr><th><a href="/act/{{.ByTitleID}}">{{.ByName}}</a></th><td class="date">{{date .Made}}</td><td class="date">{{date .TookEffect}}</td></tr>{{end}}
   </tbody>
 </table>
 </div>

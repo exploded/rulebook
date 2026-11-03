@@ -51,6 +51,17 @@ library. Templates and static files are `go:embed`-ed (`web/embed.go`).
   less s 127, which the 1967 referendum repealed. s 51 has 40 heads of power,
   (i)–(xxxix) and (xxiiiA). The tests pin these counts.
 
+- 2026-11-03: versions are keyed by `seq` (order by start date), not
+  compilation number: the Register's `Versions` include periods with no
+  compilation and numbers like `12A`. "Compilations" on the site counts
+  versions with a register id.
+- 2026-11-03: Act text comes from the Register's EPUBs, not the Open
+  Australian Legal Corpus: the EPUBs are current and keep the Word heading
+  styles the parser needs. The corpus (9.4 GB, flat text, to March 2025) is
+  still the plan for High Court decisions in M4.
+- 2026-11-03: an Act administered by several portfolios counts in each, and
+  its pages are split equally, so the treemap sums to the pages in force.
+
 ## Milestones
 - M0 scaffold and deploy pipeline; M1 Constitution and referendums (done
   locally 2026-11-03).

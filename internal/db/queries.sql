@@ -23,14 +23,14 @@ ON CONFLICT (id) DO UPDATE SET
 DELETE FROM version WHERE title_id = ?;
 
 -- name: InsertVersion :exec
-INSERT INTO version (title_id, compilation_number, register_id, start_date, end_date, is_latest, pages)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT INTO version (title_id, seq, compilation_number, register_id, start_date, end_date, is_latest, pages)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: DeleteAmendments :exec
 DELETE FROM amendment WHERE title_id = ?;
 
 -- name: InsertAmendment :exec
-INSERT OR IGNORE INTO amendment (title_id, compilation_number, affect, by_title_id, by_name, by_provisions)
+INSERT OR IGNORE INTO amendment (title_id, seq, affect, by_title_id, by_name, by_provisions)
 VALUES (?, ?, ?, ?, ?, ?);
 
 -- name: DeleteProvisions :exec
@@ -51,10 +51,10 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 SELECT * FROM title WHERE id = ?;
 
 -- name: ListVersions :many
-SELECT * FROM version WHERE title_id = ? ORDER BY compilation_number;
+SELECT * FROM version WHERE title_id = ? ORDER BY seq;
 
 -- name: ListAmendments :many
-SELECT * FROM amendment WHERE title_id = ? ORDER BY compilation_number, by_title_id;
+SELECT * FROM amendment WHERE title_id = ? ORDER BY seq, by_title_id;
 
 -- name: ListProvisions :many
 SELECT * FROM provision WHERE title_id = ? ORDER BY seq;
@@ -84,8 +84,10 @@ SELECT * FROM act_summary WHERE id = ?;
 
 -- name: ListAmendedBy :many
 SELECT a.by_title_id, a.by_name, COALESCE(t.making_date, '') AS made,
-       CAST(MIN(a.compilation_number) AS INTEGER) AS first_compilation
-FROM amendment a LEFT JOIN title t ON t.id = a.by_title_id
+       CAST(MIN(v.start_date) AS TEXT) AS took_effect
+FROM amendment a
+JOIN version v ON v.title_id = a.title_id AND v.seq = a.seq
+LEFT JOIN title t ON t.id = a.by_title_id
 WHERE a.title_id = ?
 GROUP BY a.by_title_id, a.by_name
 ORDER BY made DESC, a.by_title_id;
@@ -124,3 +126,16 @@ SELECT * FROM act_summary WHERE in_force = 1 AND pages IS NOT NULL ORDER BY page
 
 -- name: MostAmendedActs :many
 SELECT * FROM act_summary WHERE in_force = 1 ORDER BY amended_by DESC LIMIT ?;
+
+-- name: DeleteAdministration :exec
+DELETE FROM administration;
+
+-- name: InsertAdministration :exec
+INSERT OR IGNORE INTO administration (title_id, department_id, department, portfolio, source_document_id)
+VALUES (?, ?, ?, ?, ?);
+
+-- name: ListAdministration :many
+SELECT department_id, department, portfolio FROM administration WHERE title_id = ? ORDER BY portfolio, department;
+
+-- name: ListPortfolios :many
+SELECT * FROM portfolio_summary ORDER BY pages DESC, portfolio;

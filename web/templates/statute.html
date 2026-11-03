@@ -32,6 +32,23 @@
   </figcaption>
 </figure>
 
+{{if .Tiles}}
+<h2 id="portfolios">Who administers them</h2>
+<p>Pages of Acts in force, by the portfolio that administers them today. Each box is a portfolio; select one to see its Acts.</p>
+<figure class="treemap-figure">
+  {{template "treemap" .Tiles}}
+  <figcaption class="small muted">Administering departments are as the Register lists them under the current Administrative Arrangements Order. An Act administered by more than one portfolio has its pages split equally between them, so the boxes add up to the pages in force. <a href="/methodology#portfolios">How we count</a>.</figcaption>
+</figure>
+<div class="scroll">
+<table class="data">
+  <thead><tr><th>Portfolio</th><th class="num">Acts in force</th><th class="num">Principal Acts</th><th class="num">Shared with another portfolio</th><th class="num">Pages</th></tr></thead>
+  <tbody>
+    {{range .Portfolios}}<tr><th><a href="/acts?portfolio={{.Portfolio}}&amp;sort=pages">{{.Portfolio}}</a></th><td class="num">{{count .Acts}}</td><td class="num">{{count .Principal}}</td><td class="num">{{count .Shared}}</td><td class="num">{{count .Pages}}</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+{{end}}
+
 <h2 id="who">Who made them</h2>
 <p>Acts made each year, by the side of politics in government on the day each Act was made. Of all Acts since 1901, {{count .MadeNonLabor}} were made under non-Labor governments and {{count .MadeLabor}} under Labor governments.</p>
 <figure class="chart-figure">

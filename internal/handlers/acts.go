@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -16,11 +17,15 @@ import (
 
 const actsPerPage = 50
 
-// actFilter is the Acts list's query string. Every value is checked
-// against a fixed list, so it can go into SQL as written.
+// treemapAspect is the treemap's width / height; the CSS uses the same ratio.
+const treemapAspect = 2.2
+
+// actFilter is the Acts list's query string. Every value but Portfolio and
+// Q is checked against a fixed list, so it can go into SQL as written; those
+// two go in as parameters.
 type actFilter struct {
-	Status, Kind, Side, Q, Sort string
-	Page                        int
+	Status, Kind, Side, Portfolio, Q, Sort string
+	Page                                   int
 }
 
 type option struct{ Value, Label string }
@@ -57,6 +62,7 @@ func parseActFilter(v url.Values) actFilter {
 		Sort:   pick(v.Get("sort"), sortOptions),
 		Q:      strings.TrimSpace(v.Get("q")),
 	}
+	f.Portfolio = strings.TrimSpace(v.Get("portfolio"))
 	f.Page, _ = strconv.Atoi(v.Get("page"))
 	f.Page = max(f.Page, 1)
 	return f
@@ -82,6 +88,10 @@ func (f actFilter) where() (string, []any) {
 		conds = append(conds, "side = ?")
 		args = append(args, f.Side)
 	}
+	if f.Portfolio != "" {
+		conds = append(conds, "id IN (SELECT title_id FROM administration WHERE portfolio = ?)")
+		args = append(args, f.Portfolio)
+	}
 	if f.Q != "" {
 		conds = append(conds, "name LIKE ?")
 		args = append(args, "%"+f.Q+"%")
@@ -100,6 +110,7 @@ func (f actFilter) query(page int) string {
 	set("status", f.Status, "inforce")
 	set("kind", f.Kind, "all")
 	set("side", f.Side, "")
+	set("portfolio", f.Portfolio, "")
 	set("sort", f.Sort, "newest")
 	set("q", f.Q, "")
 	if page > 1 {
@@ -131,7 +142,7 @@ func (h *Handler) listActs(ctx context.Context, f actFilter, limit, offset int) 
 		var a db.ActSummary
 		if err := rows.Scan(&a.ID, &a.Name, &a.Status, &a.InForce, &a.IsPrincipal, &a.MakingDate, &a.EndedOn,
 			&a.Compilations, &a.Pages, &a.FirstPages, &a.AmendedBy, &a.Amends, &a.LastChanged,
-			&a.GovernmentID, &a.PrimeMinister, &a.Party, &a.Side); err != nil {
+			&a.GovernmentID, &a.PrimeMinister, &a.Party, &a.Side, &a.Portfolios); err != nil {
 			return nil, 0, err
 		}
 		out = append(out, a)
@@ -143,6 +154,7 @@ type actsPage struct {
 	Crumbs                                         []crumb
 	Filter                                         actFilter
 	StatusOptions, KindOptions, SideOptions, Sorts []option
+	PortfolioOptions                               []option // empty until departments are loaded
 	Acts                                           []db.ActSummary
 	Total, From, To                                int
 	PrevURL, NextURL, CSVURL                       string
@@ -155,9 +167,22 @@ func (h *Handler) acts(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, err)
 		return
 	}
+	portfolios, err := h.q.ListPortfolios(r.Context())
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	var portfolioOptions []option
+	if len(portfolios) > 0 {
+		portfolioOptions = append(portfolioOptions, option{"", "Any portfolio"})
+		for _, pf := range portfolios {
+			portfolioOptions = append(portfolioOptions, option{pf.Portfolio, pf.Portfolio})
+		}
+		slices.SortFunc(portfolioOptions[1:], func(a, b option) int { return strings.Compare(a.Label, b.Label) })
+	}
 	p := actsPage{
 		Crumbs: []crumb{{"Home", "/"}, {"The statute book", "/statute-book"}},
-		Filter: f, StatusOptions: statusOptions, KindOptions: kindOptions, SideOptions: sideOptions, Sorts: sortOptions,
+		Filter: f, StatusOptions: statusOptions, KindOptions: kindOptions, SideOptions: sideOptions, Sorts: sortOptions, PortfolioOptions: portfolioOptions,
 		Acts: acts, Total: total, From: (f.Page-1)*actsPerPage + 1, To: (f.Page-1)*actsPerPage + len(acts),
 		CSVURL: "/acts.csv" + f.query(1),
 	}
@@ -180,7 +205,7 @@ func (h *Handler) actsCSV(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="acts.csv"`)
 	cw := csv.NewWriter(w)
-	cw.Write([]string{"id", "name", "status", "principal", "made", "ended", "compilations", "pages", "pages_as_made", "amended_by", "amends", "last_changed", "prime_minister", "party", "side"})
+	cw.Write([]string{"id", "name", "status", "principal", "made", "ended", "compilations", "pages", "pages_as_made", "amended_by", "amends", "last_changed", "prime_minister", "party", "side", "portfolios"})
 	n := func(v sql.NullInt64) string {
 		if !v.Valid {
 			return ""
@@ -195,7 +220,7 @@ func (h *Handler) actsCSV(w http.ResponseWriter, r *http.Request) {
 		cw.Write([]string{a.ID, a.Name, a.Status, principal, a.MakingDate, a.EndedOn,
 			strconv.FormatInt(a.Compilations, 10), n(a.Pages), n(a.FirstPages),
 			strconv.FormatInt(a.AmendedBy, 10), strconv.FormatInt(a.Amends, 10), a.LastChanged,
-			a.PrimeMinister, a.Party, a.Side})
+			a.PrimeMinister, a.Party, a.Side, a.Portfolios})
 	}
 	cw.Flush()
 }
@@ -212,6 +237,7 @@ type actPage struct {
 	Compilations []compilation
 	AmendedBy    []db.ListAmendedByRow
 	Amends       []db.ListAmendsRow
+	Departments  []db.ListAdministrationRow
 }
 
 func (h *Handler) act(w http.ResponseWriter, r *http.Request) {
@@ -245,7 +271,12 @@ func (h *Handler) act(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, err)
 		return
 	}
-	p := actPage{Crumbs: []crumb{{"Home", "/"}, {"The statute book", "/statute-book"}, {"Acts", "/acts"}}, Act: a, Title: t, AmendedBy: by, Amends: amends}
+	deps, err := h.q.ListAdministration(ctx, id)
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	p := actPage{Crumbs: []crumb{{"Home", "/"}, {"The statute book", "/statute-book"}, {"Acts", "/acts"}}, Act: a, Title: t, AmendedBy: by, Amends: amends, Departments: deps}
 	var most int64
 	for _, v := range vs {
 		if v.Pages.Valid {
@@ -274,6 +305,8 @@ type statutePage struct {
 	MostAmended  []db.ActSummary
 	MadeLabor    int64
 	MadeNonLabor int64
+	Portfolios   []db.PortfolioSummary
+	Tiles        []chart.Tile
 }
 
 func (h *Handler) statuteBook(w http.ResponseWriter, r *http.Request) {
@@ -303,7 +336,21 @@ func (h *Handler) statuteBook(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, err)
 		return
 	}
-	p := statutePage{Crumbs: []crumb{{"Home", "/"}}, Totals: totals, Governments: govs, Largest: largest, MostAmended: amended}
+	portfolios, err := h.q.ListPortfolios(ctx)
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	p := statutePage{Crumbs: []crumb{{"Home", "/"}}, Totals: totals, Governments: govs, Largest: largest, MostAmended: amended, Portfolios: portfolios}
+	var items []chart.Item
+	for _, pf := range portfolios {
+		items = append(items, chart.Item{
+			Name: pf.Portfolio, Value: float64(pf.Pages),
+			URL: "/acts?" + url.Values{"portfolio": {pf.Portfolio}, "sort": {"pages"}}.Encode(),
+			Tip: fmt.Sprintf("%s|%s pages|%s Acts in force, %s of them principal Acts", pf.Portfolio, chart.Count(float64(pf.Pages)), chart.Count(float64(pf.Acts)), chart.Count(float64(pf.Principal))),
+		})
+	}
+	p.Tiles = chart.Treemap(items, treemapAspect)
 	// 1 January 1901 had no Acts; the series start with 1902.
 	var years []int
 	var pages, principal, amending, labor, nonLabor []float64

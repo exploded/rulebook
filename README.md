@@ -40,6 +40,8 @@ sudo install-db-rulebook /tmp/rulebook.db
 
 `snapshot-db` uses `VACUUM INTO`, so a loader running at the same time can't
 leave a half-written copy. It also switches the copy to a rollback journal.
+It leaves out the Acts' text from `load-text`, which the site doesn't show
+yet; pass `-act-text` to keep it.
 `install-db-rulebook` checks the file is SQLite, swaps it in and restarts
 the service.
 
@@ -65,6 +67,11 @@ asks that full crawls run outside 08:00–20:00 AEST, with notice given first
 through its feedback form.
 
 API notes:
+
+- `Versions` lists every period in which a title's text stayed the same.
+  Most have a compilation number and register id, but some, mostly before
+  2004, have neither, and numbers can carry a letter (`12A`). The loaders
+  key versions by their order (`seq`), not their number.
 
 - `$top` is capped at 500; follow `@odata.nextLink`.
 - Filter on `isInForce eq true`, not `status`.
@@ -105,8 +112,34 @@ PowerShell on your PC, in `C:\Projects\go\laws`:
 
 ```
 go run ./cmd/load-acts
+go run ./cmd/load-departments
 go run ./cmd/derive
 ```
+
+### Act text
+
+`cmd/load-text` fetches the latest compilation of every principal Act in
+force as an EPUB and splits it into sections with `internal/statute`
+(`-amending` adds the amending Acts). It keeps the same quiet hours and
+pause, at one request an Act. Notes on the EPUBs:
+
+- A long Act comes as several documents, one per volume
+  (`OEBPS/document_N/document_N.html`), with the endnotes last. Each volume
+  repeats the title and contents before its first heading.
+- Headings: `ActHead1` chapter, `ActHead2` part, `ActHead3` division,
+  `ActHead4` subdivision, `ActHead5` section, `ActHead6` schedule. Numbered
+  `ActHead5` headings after a schedule are its clauses.
+- Section numbers can be hyphenated (`6-5`), written with a non-breaking
+  hyphen (U+2011).
+
+### Departments
+
+`cmd/load-departments` loads the departments that administer each Act in
+force (`$expand=administeringDepartments` on `Titles`, 100 Acts a request,
+about 50 requests). Run it after `load-acts`. It keeps the same quiet hours
+and pause. `cmd/derive` then fills `act_summary.portfolios` and
+`portfolio_summary`, which drives the statute book's treemap. An Act shared
+by several portfolios has its pages split equally between them.
 
 ### Governments
 

@@ -27,15 +27,24 @@ type ActSummary struct {
 	PrimeMinister string
 	Party         string
 	Side          string
+	Portfolios    string
+}
+
+type Administration struct {
+	TitleID          string
+	DepartmentID     string
+	Department       string
+	Portfolio        string
+	SourceDocumentID int64
 }
 
 type Amendment struct {
-	TitleID           string
-	CompilationNumber int64
-	Affect            string
-	ByTitleID         string
-	ByName            string
-	ByProvisions      string
+	TitleID      string
+	Seq          int64
+	Affect       string
+	ByTitleID    string
+	ByName       string
+	ByProvisions string
 }
 
 type Government struct {
@@ -56,6 +65,14 @@ type LoadRun struct {
 	RowsWritten      int64
 	Notes            string
 	FinishedAt       time.Time
+}
+
+type PortfolioSummary struct {
+	Portfolio string
+	Acts      int64
+	Principal int64
+	Shared    int64
+	Pages     int64
 }
 
 type Provision struct {
@@ -130,7 +147,8 @@ type Title struct {
 
 type Version struct {
 	TitleID           string
-	CompilationNumber int64
+	Seq               int64
+	CompilationNumber string
 	RegisterID        string
 	StartDate         string
 	EndDate           string

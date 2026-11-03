@@ -1,10 +1,12 @@
 // Package statute splits the text of a law, as the Federal Register of
 // Legislation publishes it in EPUB form, into its sections.
 //
-// The Register's EPUBs hold one XHTML file converted from the Word original,
-// and each paragraph keeps its Word style as its class: ActHead1 for a
-// chapter, ActHead2 for a part, ActHead5 for a section, and subsection,
-// paragraph and the like for the text. The endnotes start at ENotesHeading1.
+// The Register's EPUBs hold XHTML converted from the Word original, one
+// document per volume, and each paragraph keeps its Word style as its class:
+// ActHead1 for a chapter, ActHead2 for a part, ActHead3 and ActHead4 for a
+// division and subdivision, ActHead5 for a section, ActHead6 for a
+// schedule, and subsection, paragraph and the like for the text. The
+// endnotes start at ENotesHeading1.
 package statute
 
 import (
@@ -14,16 +16,19 @@ import (
 	"io"
 	"path"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 
 	"golang.org/x/net/html"
 )
 
 // Provision is one section of a law, or a covering clause of the
-// Constitution Act, or a schedule.
+// Constitution Act, or a schedule, or a numbered clause of a schedule. A
+// clause's PartTitle is its schedule's heading.
 type Provision struct {
-	Kind         string // covering | section | schedule
-	Number       string // "51", "105A"; "" for a schedule
+	Kind         string // covering | section | schedule | clause (of a schedule)
+	Number       string // "51", "105A", "6-5"; "" for a schedule
 	Heading      string
 	Chapter      string // "I" ... ; "" outside a chapter
 	ChapterTitle string
@@ -41,37 +46,53 @@ func (p Provision) Words() int {
 	return n
 }
 
-// ReadEPUB returns the XHTML text of an EPUB from the Register: the largest
-// .html or .xhtml file in it.
-func ReadEPUB(data []byte) ([]byte, error) {
+// ReadEPUB returns the XHTML documents of an EPUB from the Register in
+// order. A long Act comes as several documents, one per volume, with the
+// endnotes last.
+func ReadEPUB(data []byte) ([][]byte, error) {
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, err
 	}
-	var best *zip.File
+	type doc struct {
+		n int
+		f *zip.File
+	}
+	var docs []doc
 	for _, f := range zr.File {
 		if ext := path.Ext(f.Name); ext != ".html" && ext != ".xhtml" {
 			continue
 		}
-		if best == nil || f.UncompressedSize64 > best.UncompressedSize64 {
-			best = f
-		}
+		// OEBPS/document_2/document_2.html is volume 2.
+		n, _ := strconv.Atoi(strings.TrimPrefix(strings.TrimSuffix(path.Base(f.Name), path.Ext(f.Name)), "document_"))
+		docs = append(docs, doc{n, f})
 	}
-	if best == nil {
+	if len(docs) == 0 {
 		return nil, fmt.Errorf("no HTML document in EPUB")
 	}
-	rc, err := best.Open()
-	if err != nil {
-		return nil, err
+	slices.SortStableFunc(docs, func(a, b doc) int { return a.n - b.n })
+	out := make([][]byte, 0, len(docs))
+	for _, d := range docs {
+		rc, err := d.f.Open()
+		if err != nil {
+			return nil, err
+		}
+		b, err := io.ReadAll(rc)
+		rc.Close()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, b)
 	}
-	defer rc.Close()
-	return io.ReadAll(rc)
+	return out, nil
 }
 
 var (
-	// The heading is optional: ss 86 and 87, long spent, keep only a number.
-	sectionRE = regexp.MustCompile(`^(\d+[A-Z]*)\.?(?:\s+(.*))?$`)
-	divRE     = regexp.MustCompile(`^(?i:(chapter|part))\s+([0-9IVXLC]+[A-Z]*)\.?\s*[—–-]?\s*(.*)$`)
+	// The heading is optional: ss 86 and 87 of the Constitution, long
+	// spent, keep only a number. Some Acts number sections by Division:
+	// 6-5, 995-1.
+	sectionRE = regexp.MustCompile(`^(\d+[A-Z]*(?:-\d+[A-Z]*)?)\.?(?:\s+(.*))?$`)
+	divRE     = regexp.MustCompile(`^(?i:(chapter|part))\s+([0-9IVXLC]+[A-Z]*(?:-[0-9]+[A-Z]*)?)\.?\s*[—–-]?\s*(.*)$`)
 )
 
 // skipped paragraph styles: tables of contents, page headers and the
@@ -80,19 +101,36 @@ func skipped(class string) bool {
 	return strings.HasPrefix(class, "TOC") || class == "TofSectsSection" || class == "Header"
 }
 
-// Parse returns the provisions in an EPUB's XHTML, in order.
-func Parse(doc []byte) ([]Provision, error) {
-	paras, err := paragraphs(doc)
-	if err != nil {
-		return nil, err
+// heading reports whether a paragraph style is a heading the body of a
+// volume starts at: chapter, part, division, subdivision, section or
+// schedule.
+func heading(class string) bool {
+	switch class {
+	case "ActHead1", "ActHead2", "ActHead3", "ActHead4", "ActHead5", "ActHead6":
+		return true
 	}
+	return false
+}
+
+// Parse returns the provisions of an Act from its EPUB documents, in order.
+func Parse(docs ...[]byte) ([]Provision, error) {
+	return parse(docs, false)
+}
+
+// ParseConstitution is Parse for the Commonwealth of Australia Constitution
+// Act, whose sections before Chapter I are covering clauses.
+func ParseConstitution(docs ...[]byte) ([]Provision, error) {
+	return parse(docs, true)
+}
+
+func parse(docs [][]byte, covering bool) ([]Provision, error) {
 	var (
 		out            []Provision
 		cur            *Provision
 		chapter, chapT string
 		part, partT    string
 		inChapters     bool
-		started        bool
+		sched          string // heading of the schedule we are in
 	)
 	flush := func() {
 		if cur != nil {
@@ -100,64 +138,89 @@ func Parse(doc []byte) ([]Provision, error) {
 			cur = nil
 		}
 	}
-	for _, p := range paras {
-		if p.class == "ENotesHeading1" {
-			break
+	schedule := func(text string) {
+		flush()
+		cur = &Provision{Kind: "schedule", Heading: trimHeading(text)}
+		chapter, chapT, part, partT = "", "", "", ""
+		sched = cur.Heading
+	}
+	for _, doc := range docs {
+		paras, err := paragraphs(doc)
+		if err != nil {
+			return nil, err
 		}
-		if !started {
-			// Front matter (title, long title, contents) runs until the
-			// first section heading.
-			if p.class != "ActHead5" && p.class != "ActHead1" {
+		started := false
+	volume:
+		for _, p := range paras {
+			if p.class == "ENotesHeading1" {
+				break volume
+			}
+			if !started {
+				// Each volume's front matter (title, compilation details,
+				// contents) runs until its first heading.
+				if !heading(p.class) {
+					continue
+				}
+				started = true
+			}
+			if skipped(p.class) || p.text == "" {
 				continue
 			}
-			started = true
-		}
-		if skipped(p.class) || p.text == "" {
-			continue
-		}
-		switch p.class {
-		case "ActHead1", "ActHead2":
-			if strings.HasPrefix(strings.ToUpper(p.text), "SCHEDULE") || strings.HasPrefix(strings.ToUpper(p.text), "THE SCHEDULE") {
+			switch p.class {
+			case "ActHead1", "ActHead2":
+				up := strings.ToUpper(p.text)
+				if strings.HasPrefix(up, "SCHEDULE") || strings.HasPrefix(up, "THE SCHEDULE") {
+					schedule(p.text)
+					continue
+				}
 				flush()
-				cur = &Provision{Kind: "schedule", Heading: trimHeading(p.text)}
-				chapter, chapT, part, partT = "", "", "", ""
-				continue
-			}
-			m := divRE.FindStringSubmatch(p.text)
-			if m == nil {
-				return nil, fmt.Errorf("unrecognised %s heading %q", p.class, p.text)
-			}
-			flush()
-			if strings.EqualFold(m[1], "chapter") {
-				chapter, chapT, part, partT = m[2], trimHeading(m[3]), "", ""
-				inChapters = true
-			} else {
-				part, partT = m[2], trimHeading(m[3])
-			}
-		case "ActHead5":
-			m := sectionRE.FindStringSubmatch(p.text)
-			if m == nil {
-				// An unnumbered heading, like "The Constitution." inside
-				// covering clause 9, belongs to the text around it.
+				m := divRE.FindStringSubmatch(p.text)
+				if m == nil {
+					// An unusual heading: keep it as an unnumbered part.
+					part, partT = "", trimHeading(p.text)
+					continue
+				}
+				if strings.EqualFold(m[1], "chapter") {
+					chapter, chapT, part, partT = m[2], trimHeading(m[3]), "", ""
+					inChapters = true
+				} else {
+					part, partT = m[2], trimHeading(m[3])
+				}
+			case "ActHead3", "ActHead4":
+				// Divisions and subdivisions end the section before them.
+				flush()
+			case "ActHead6":
+				schedule(p.text)
+			case "ActHead5":
+				m := sectionRE.FindStringSubmatch(p.text)
+				if m == nil {
+					// An unnumbered heading, like "The Constitution." inside
+					// covering clause 9, belongs to the text around it.
+					if cur != nil {
+						cur.Body = append(cur.Body, p.text)
+					}
+					continue
+				}
+				flush()
+				if sched != "" {
+					// Numbered headings after a schedule's are its clauses.
+					cur = &Provision{Kind: "clause", Number: m[1], Heading: trimHeading(m[2]), PartTitle: sched}
+					continue
+				}
+				kind := "section"
+				if covering && !inChapters {
+					kind = "covering"
+				}
+				cur = &Provision{Kind: kind, Number: m[1], Heading: trimHeading(m[2]),
+					Chapter: chapter, ChapterTitle: chapT, Part: part, PartTitle: partT}
+			default:
 				if cur != nil {
 					cur.Body = append(cur.Body, p.text)
 				}
-				continue
-			}
-			flush()
-			kind := "section"
-			if !inChapters {
-				kind = "covering"
-			}
-			cur = &Provision{Kind: kind, Number: m[1], Heading: trimHeading(m[2]),
-				Chapter: chapter, ChapterTitle: chapT, Part: part, PartTitle: partT}
-		default:
-			if cur != nil {
-				cur.Body = append(cur.Body, p.text)
 			}
 		}
+		flush()
 	}
-	flush()
 	return out, nil
 }
 
@@ -216,7 +279,9 @@ func paragraphs(doc []byte) ([]para, error) {
 	}
 }
 
-// clean collapses whitespace, including no-break spaces, to single spaces.
+// clean collapses whitespace, including no-break spaces, to single spaces,
+// and turns non-breaking hyphens (as in section 6-5) into plain ones.
 func clean(s string) string {
-	return strings.Join(strings.Fields(strings.ReplaceAll(s, " ", " ")), " ")
+	s = strings.NewReplacer("\u00a0", " ", "\u2011", "-").Replace(s)
+	return strings.Join(strings.Fields(s), " ")
 }

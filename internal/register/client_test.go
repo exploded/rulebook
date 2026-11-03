@@ -3,6 +3,7 @@ package register
 import (
 	"encoding/json"
 	"os"
+	"slices"
 	"testing"
 	"time"
 )
@@ -94,5 +95,47 @@ func TestPages(t *testing.T) {
 	}
 	if got := Pages(docs)["X/3"]; got != 752 {
 		t.Errorf("multi-volume pages = %d, want 752", got)
+	}
+}
+
+func TestAdministered(t *testing.T) {
+	b, err := os.ReadFile("testdata/administered.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var page struct{ Value []Administered }
+	if err := json.Unmarshal(b, &page); err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Value) != 20 {
+		t.Fatalf("%d titles, want 20", len(page.Value))
+	}
+	// The Defence Act 1903 is administered by four departments.
+	for _, a := range page.Value {
+		if a.ID == "C1903A00020" {
+			if len(a.Departments) != 4 || a.Departments[1].Portfolio != "Defence" {
+				t.Errorf("C1903A00020 departments = %+v", a.Departments)
+			}
+			return
+		}
+	}
+	t.Error("C1903A00020 missing")
+}
+
+func TestSortVersions(t *testing.T) {
+	vs := []Version{
+		{CompilationNumber: "13", Start: "2010-01-01"},
+		{CompilationNumber: "12A", Start: "2009-06-01"},
+		{CompilationNumber: "0", Start: "1990-01-01"},
+		{CompilationNumber: "12", Start: "2009-06-01"},
+		{CompilationNumber: "9", Start: "2005-01-01"},
+	}
+	SortVersions(vs)
+	var got []string
+	for _, v := range vs {
+		got = append(got, v.CompilationNumber)
+	}
+	if want := []string{"0", "9", "12", "12A", "13"}; !slices.Equal(got, want) {
+		t.Errorf("order = %v, want %v", got, want)
 	}
 }

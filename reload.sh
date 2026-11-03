@@ -5,7 +5,10 @@ set -e
 go run ./cmd/load-register -titles C2004Q00685 -text
 go run ./cmd/load-referendums
 go run ./cmd/load-governments
-# Fetches only in the Register's quiet hours (20:00-08:00 AEST) unless
-# cached; a first full run takes about 4 hours. See README, "Acts".
+# These fetch only in the Register's quiet hours (20:00-08:00 AEST) unless
+# cached. A first full run of load-acts takes about 3 hours; load-text about
+# as long again. See README, "Acts" and "Act text".
 go run ./cmd/load-acts
+go run ./cmd/load-departments
+go run ./cmd/load-text
 go run ./cmd/derive

@@ -16,7 +16,7 @@ func TestHeadsOfPower(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ps, err := statute.Parse(doc)
+	ps, err := statute.ParseConstitution(doc...)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -45,6 +45,7 @@ func New(conn *sql.DB, templates, static fs.FS) (*Handler, error) {
 		"add2":   func(a, b float64) float64 { return a + b },
 		"sub":    func(a, b float64) float64 { return a - b },
 		"trimS":  func(s string) string { return strings.TrimPrefix(s, "s ") },
+		"pctCSS": func(f float64) template.CSS { return template.CSS(strconv.FormatFloat(f, 'f', 3, 64) + "%") },
 		// basis is a section tile's minimum width in pixels: wide enough for
 		// its number, wider for long sections, so a row wraps sensibly.
 		"basis": func(words int64) int64 { return max(30, min(words/6, 220)) },

@@ -43,27 +43,32 @@ CREATE TABLE IF NOT EXISTS title (
 
 CREATE INDEX IF NOT EXISTS title_collection ON title(collection, in_force);
 
--- A compilation: the text of a title as in force from start until end.
+-- A version: the text of a title as in force from start until end. seq
+-- orders a title's versions by start date, from 0 for the text as made.
+-- Most versions have a published compilation, with a register id and a
+-- number, which can carry a letter (12A); some periods, mostly before 2004,
+-- have neither.
 CREATE TABLE IF NOT EXISTS version (
   title_id            TEXT NOT NULL REFERENCES title(id),
-  compilation_number  INTEGER NOT NULL,
-  register_id         TEXT NOT NULL,
+  seq                 INTEGER NOT NULL,
+  compilation_number  TEXT NOT NULL DEFAULT '',
+  register_id         TEXT NOT NULL DEFAULT '',
   start_date          TEXT NOT NULL,
   end_date            TEXT NOT NULL DEFAULT '',  -- '' while current
   is_latest           INTEGER NOT NULL,
   pages               INTEGER,           -- from the compilation's PDF; NULL if unknown
-  PRIMARY KEY (title_id, compilation_number)
+  PRIMARY KEY (title_id, seq)
 );
 
--- One amending title named in a compilation's reasons.
+-- One amending title named in a version's reasons.
 CREATE TABLE IF NOT EXISTS amendment (
   title_id            TEXT NOT NULL REFERENCES title(id),
-  compilation_number  INTEGER NOT NULL,
+  seq                 INTEGER NOT NULL,  -- the version it took effect in
   affect              TEXT NOT NULL,     -- Amend | Repeal | ...
   by_title_id         TEXT NOT NULL,
   by_name             TEXT NOT NULL,
   by_provisions       TEXT NOT NULL DEFAULT '',
-  PRIMARY KEY (title_id, compilation_number, by_title_id, by_provisions)
+  PRIMARY KEY (title_id, seq, by_title_id, by_provisions)
 );
 
 CREATE INDEX IF NOT EXISTS amendment_by ON amendment(by_title_id);
@@ -72,7 +77,7 @@ CREATE INDEX IF NOT EXISTS amendment_by ON amendment(by_title_id);
 CREATE TABLE IF NOT EXISTS provision (
   title_id       TEXT NOT NULL REFERENCES title(id),
   seq            INTEGER NOT NULL,       -- order in the text
-  kind           TEXT NOT NULL,          -- covering | section | schedule
+  kind           TEXT NOT NULL,          -- covering | section | schedule | clause (part_title is its schedule)
   number         TEXT NOT NULL,          -- 51, 105A; '' for a schedule
   heading        TEXT NOT NULL,
   chapter        TEXT NOT NULL DEFAULT '',  -- I, II ... ('' outside a chapter)
@@ -113,6 +118,20 @@ CREATE TABLE IF NOT EXISTS government (
   source_document_id INTEGER NOT NULL REFERENCES source_document(id)
 );
 
+-- A department that administers an Act in force, as the Register lists it
+-- under the current Administrative Arrangements Order. An Act can have
+-- several.
+CREATE TABLE IF NOT EXISTS administration (
+  title_id            TEXT NOT NULL REFERENCES title(id),
+  department_id       TEXT NOT NULL,     -- the Register's organisation id, O-000778
+  department          TEXT NOT NULL,
+  portfolio           TEXT NOT NULL,
+  source_document_id  INTEGER NOT NULL REFERENCES source_document(id),
+  PRIMARY KEY (title_id, department_id)
+);
+
+CREATE INDEX IF NOT EXISTS administration_portfolio ON administration(portfolio);
+
 -- Derived by cmd/derive from title, version, amendment and government.
 -- One row per Act.
 CREATE TABLE IF NOT EXISTS act_summary (
@@ -132,7 +151,8 @@ CREATE TABLE IF NOT EXISTS act_summary (
   government_id   INTEGER REFERENCES government(id),
   prime_minister  TEXT NOT NULL,
   party           TEXT NOT NULL,
-  side            TEXT NOT NULL
+  side            TEXT NOT NULL,
+  portfolios      TEXT NOT NULL DEFAULT ''  -- administering portfolios, '; ' between
 );
 
 CREATE INDEX IF NOT EXISTS act_summary_force ON act_summary(in_force, is_principal);
@@ -147,4 +167,15 @@ CREATE TABLE IF NOT EXISTS statute_year (
   acts_with_pages     INTEGER NOT NULL,
   made_labor          INTEGER NOT NULL,  -- Acts made during the year, by side of government
   made_non_labor      INTEGER NOT NULL
+);
+
+-- Acts in force by administering portfolio. An Act administered by more
+-- than one portfolio counts in each, and its pages are split equally
+-- between them, so pages sum to the pages in force.
+CREATE TABLE IF NOT EXISTS portfolio_summary (
+  portfolio   TEXT PRIMARY KEY,
+  acts        INTEGER NOT NULL,
+  principal   INTEGER NOT NULL,
+  shared      INTEGER NOT NULL,          -- Acts it shares with another portfolio
+  pages       INTEGER NOT NULL
 );

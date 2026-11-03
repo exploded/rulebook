@@ -11,6 +11,15 @@ import (
 	"time"
 )
 
+const deleteAdministration = `-- name: DeleteAdministration :exec
+DELETE FROM administration
+`
+
+func (q *Queries) DeleteAdministration(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAdministration)
+	return err
+}
+
 const deleteAmendments = `-- name: DeleteAmendments :exec
 DELETE FROM amendment WHERE title_id = ?
 `
@@ -57,7 +66,7 @@ func (q *Queries) DeleteVersions(ctx context.Context, titleID string) error {
 }
 
 const getActSummary = `-- name: GetActSummary :one
-SELECT id, name, status, in_force, is_principal, making_date, ended_on, compilations, pages, first_pages, amended_by, amends, last_changed, government_id, prime_minister, party, side FROM act_summary WHERE id = ?
+SELECT id, name, status, in_force, is_principal, making_date, ended_on, compilations, pages, first_pages, amended_by, amends, last_changed, government_id, prime_minister, party, side, portfolios FROM act_summary WHERE id = ?
 `
 
 func (q *Queries) GetActSummary(ctx context.Context, id string) (ActSummary, error) {
@@ -81,6 +90,7 @@ func (q *Queries) GetActSummary(ctx context.Context, id string) (ActSummary, err
 		&i.PrimeMinister,
 		&i.Party,
 		&i.Side,
+		&i.Portfolios,
 	)
 	return i, err
 }
@@ -198,24 +208,48 @@ func (q *Queries) GovernmentStats(ctx context.Context) ([]GovernmentStatsRow, er
 	return items, nil
 }
 
+const insertAdministration = `-- name: InsertAdministration :exec
+INSERT OR IGNORE INTO administration (title_id, department_id, department, portfolio, source_document_id)
+VALUES (?, ?, ?, ?, ?)
+`
+
+type InsertAdministrationParams struct {
+	TitleID          string
+	DepartmentID     string
+	Department       string
+	Portfolio        string
+	SourceDocumentID int64
+}
+
+func (q *Queries) InsertAdministration(ctx context.Context, arg InsertAdministrationParams) error {
+	_, err := q.db.ExecContext(ctx, insertAdministration,
+		arg.TitleID,
+		arg.DepartmentID,
+		arg.Department,
+		arg.Portfolio,
+		arg.SourceDocumentID,
+	)
+	return err
+}
+
 const insertAmendment = `-- name: InsertAmendment :exec
-INSERT OR IGNORE INTO amendment (title_id, compilation_number, affect, by_title_id, by_name, by_provisions)
+INSERT OR IGNORE INTO amendment (title_id, seq, affect, by_title_id, by_name, by_provisions)
 VALUES (?, ?, ?, ?, ?, ?)
 `
 
 type InsertAmendmentParams struct {
-	TitleID           string
-	CompilationNumber int64
-	Affect            string
-	ByTitleID         string
-	ByName            string
-	ByProvisions      string
+	TitleID      string
+	Seq          int64
+	Affect       string
+	ByTitleID    string
+	ByName       string
+	ByProvisions string
 }
 
 func (q *Queries) InsertAmendment(ctx context.Context, arg InsertAmendmentParams) error {
 	_, err := q.db.ExecContext(ctx, insertAmendment,
 		arg.TitleID,
-		arg.CompilationNumber,
+		arg.Seq,
 		arg.Affect,
 		arg.ByTitleID,
 		arg.ByName,
@@ -357,13 +391,14 @@ func (q *Queries) InsertReferendum(ctx context.Context, arg InsertReferendumPara
 }
 
 const insertVersion = `-- name: InsertVersion :exec
-INSERT INTO version (title_id, compilation_number, register_id, start_date, end_date, is_latest, pages)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO version (title_id, seq, compilation_number, register_id, start_date, end_date, is_latest, pages)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertVersionParams struct {
 	TitleID           string
-	CompilationNumber int64
+	Seq               int64
+	CompilationNumber string
 	RegisterID        string
 	StartDate         string
 	EndDate           string
@@ -374,6 +409,7 @@ type InsertVersionParams struct {
 func (q *Queries) InsertVersion(ctx context.Context, arg InsertVersionParams) error {
 	_, err := q.db.ExecContext(ctx, insertVersion,
 		arg.TitleID,
+		arg.Seq,
 		arg.CompilationNumber,
 		arg.RegisterID,
 		arg.StartDate,
@@ -385,7 +421,7 @@ func (q *Queries) InsertVersion(ctx context.Context, arg InsertVersionParams) er
 }
 
 const largestActs = `-- name: LargestActs :many
-SELECT id, name, status, in_force, is_principal, making_date, ended_on, compilations, pages, first_pages, amended_by, amends, last_changed, government_id, prime_minister, party, side FROM act_summary WHERE in_force = 1 AND pages IS NOT NULL ORDER BY pages DESC LIMIT ?
+SELECT id, name, status, in_force, is_principal, making_date, ended_on, compilations, pages, first_pages, amended_by, amends, last_changed, government_id, prime_minister, party, side, portfolios FROM act_summary WHERE in_force = 1 AND pages IS NOT NULL ORDER BY pages DESC LIMIT ?
 `
 
 func (q *Queries) LargestActs(ctx context.Context, limit int64) ([]ActSummary, error) {
@@ -415,7 +451,41 @@ func (q *Queries) LargestActs(ctx context.Context, limit int64) ([]ActSummary, e
 			&i.PrimeMinister,
 			&i.Party,
 			&i.Side,
+			&i.Portfolios,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAdministration = `-- name: ListAdministration :many
+SELECT department_id, department, portfolio FROM administration WHERE title_id = ? ORDER BY portfolio, department
+`
+
+type ListAdministrationRow struct {
+	DepartmentID string
+	Department   string
+	Portfolio    string
+}
+
+func (q *Queries) ListAdministration(ctx context.Context, titleID string) ([]ListAdministrationRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAdministration, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAdministrationRow
+	for rows.Next() {
+		var i ListAdministrationRow
+		if err := rows.Scan(&i.DepartmentID, &i.Department, &i.Portfolio); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -431,18 +501,20 @@ func (q *Queries) LargestActs(ctx context.Context, limit int64) ([]ActSummary, e
 
 const listAmendedBy = `-- name: ListAmendedBy :many
 SELECT a.by_title_id, a.by_name, COALESCE(t.making_date, '') AS made,
-       CAST(MIN(a.compilation_number) AS INTEGER) AS first_compilation
-FROM amendment a LEFT JOIN title t ON t.id = a.by_title_id
+       CAST(MIN(v.start_date) AS TEXT) AS took_effect
+FROM amendment a
+JOIN version v ON v.title_id = a.title_id AND v.seq = a.seq
+LEFT JOIN title t ON t.id = a.by_title_id
 WHERE a.title_id = ?
 GROUP BY a.by_title_id, a.by_name
 ORDER BY made DESC, a.by_title_id
 `
 
 type ListAmendedByRow struct {
-	ByTitleID        string
-	ByName           string
-	Made             string
-	FirstCompilation int64
+	ByTitleID  string
+	ByName     string
+	Made       string
+	TookEffect string
 }
 
 func (q *Queries) ListAmendedBy(ctx context.Context, titleID string) ([]ListAmendedByRow, error) {
@@ -458,7 +530,7 @@ func (q *Queries) ListAmendedBy(ctx context.Context, titleID string) ([]ListAmen
 			&i.ByTitleID,
 			&i.ByName,
 			&i.Made,
-			&i.FirstCompilation,
+			&i.TookEffect,
 		); err != nil {
 			return nil, err
 		}
@@ -474,7 +546,7 @@ func (q *Queries) ListAmendedBy(ctx context.Context, titleID string) ([]ListAmen
 }
 
 const listAmendments = `-- name: ListAmendments :many
-SELECT title_id, compilation_number, affect, by_title_id, by_name, by_provisions FROM amendment WHERE title_id = ? ORDER BY compilation_number, by_title_id
+SELECT title_id, seq, affect, by_title_id, by_name, by_provisions FROM amendment WHERE title_id = ? ORDER BY seq, by_title_id
 `
 
 func (q *Queries) ListAmendments(ctx context.Context, titleID string) ([]Amendment, error) {
@@ -488,7 +560,7 @@ func (q *Queries) ListAmendments(ctx context.Context, titleID string) ([]Amendme
 		var i Amendment
 		if err := rows.Scan(
 			&i.TitleID,
-			&i.CompilationNumber,
+			&i.Seq,
 			&i.Affect,
 			&i.ByTitleID,
 			&i.ByName,
@@ -591,6 +663,39 @@ func (q *Queries) ListLoadRuns(ctx context.Context) ([]ListLoadRunsRow, error) {
 			&i.Url,
 			&i.FileName,
 			&i.Sha256,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPortfolios = `-- name: ListPortfolios :many
+SELECT portfolio, acts, principal, shared, pages FROM portfolio_summary ORDER BY pages DESC, portfolio
+`
+
+func (q *Queries) ListPortfolios(ctx context.Context) ([]PortfolioSummary, error) {
+	rows, err := q.db.QueryContext(ctx, listPortfolios)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PortfolioSummary
+	for rows.Next() {
+		var i PortfolioSummary
+		if err := rows.Scan(
+			&i.Portfolio,
+			&i.Acts,
+			&i.Principal,
+			&i.Shared,
+			&i.Pages,
 		); err != nil {
 			return nil, err
 		}
@@ -723,7 +828,7 @@ func (q *Queries) ListStatuteYears(ctx context.Context) ([]StatuteYear, error) {
 }
 
 const listVersions = `-- name: ListVersions :many
-SELECT title_id, compilation_number, register_id, start_date, end_date, is_latest, pages FROM version WHERE title_id = ? ORDER BY compilation_number
+SELECT title_id, seq, compilation_number, register_id, start_date, end_date, is_latest, pages FROM version WHERE title_id = ? ORDER BY seq
 `
 
 func (q *Queries) ListVersions(ctx context.Context, titleID string) ([]Version, error) {
@@ -737,6 +842,7 @@ func (q *Queries) ListVersions(ctx context.Context, titleID string) ([]Version, 
 		var i Version
 		if err := rows.Scan(
 			&i.TitleID,
+			&i.Seq,
 			&i.CompilationNumber,
 			&i.RegisterID,
 			&i.StartDate,
@@ -758,7 +864,7 @@ func (q *Queries) ListVersions(ctx context.Context, titleID string) ([]Version, 
 }
 
 const mostAmendedActs = `-- name: MostAmendedActs :many
-SELECT id, name, status, in_force, is_principal, making_date, ended_on, compilations, pages, first_pages, amended_by, amends, last_changed, government_id, prime_minister, party, side FROM act_summary WHERE in_force = 1 ORDER BY amended_by DESC LIMIT ?
+SELECT id, name, status, in_force, is_principal, making_date, ended_on, compilations, pages, first_pages, amended_by, amends, last_changed, government_id, prime_minister, party, side, portfolios FROM act_summary WHERE in_force = 1 ORDER BY amended_by DESC LIMIT ?
 `
 
 func (q *Queries) MostAmendedActs(ctx context.Context, limit int64) ([]ActSummary, error) {
@@ -788,6 +894,7 @@ func (q *Queries) MostAmendedActs(ctx context.Context, limit int64) ([]ActSummar
 			&i.PrimeMinister,
 			&i.Party,
 			&i.Side,
+			&i.Portfolios,
 		); err != nil {
 			return nil, err
 		}

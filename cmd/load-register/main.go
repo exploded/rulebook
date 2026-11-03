@@ -14,9 +14,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 
+	"rulebook/internal/constitution"
 	"rulebook/internal/db"
 	"rulebook/internal/register"
 	"rulebook/internal/source"
@@ -91,14 +91,12 @@ func load(ctx context.Context, conn *sql.DB, c *register.Client, id string, with
 		return err
 	}
 	amendments := 0
-	for _, v := range versions {
-		n, err := strconv.Atoi(v.CompilationNumber)
-		if err != nil {
-			return fmt.Errorf("compilation number %q: %w", v.CompilationNumber, err)
-		}
+	register.SortVersions(versions)
+	for seq, v := range versions {
 		if err := q.InsertVersion(ctx, db.InsertVersionParams{
 			TitleID:           id,
-			CompilationNumber: int64(n),
+			CompilationNumber: v.CompilationNumber,
+			Seq:               int64(seq),
 			RegisterID:        v.RegisterID,
 			StartDate:         register.Date(v.Start),
 			EndDate:           register.Date(v.End),
@@ -112,7 +110,7 @@ func load(ctx context.Context, conn *sql.DB, c *register.Client, id string, with
 			}
 			if err := q.InsertAmendment(ctx, db.InsertAmendmentParams{
 				TitleID:           id,
-				CompilationNumber: int64(n),
+				Seq:               int64(seq),
 				Affect:            r.Affect,
 				ByTitleID:         r.AffectedByTitle.TitleID,
 				ByName:            r.AffectedByTitle.Name,
@@ -146,11 +144,15 @@ func loadText(ctx context.Context, q *db.Queries, c *register.Client, t register
 	if err != nil {
 		return err
 	}
-	doc, err := statute.ReadEPUB(epub)
+	docs, err := statute.ReadEPUB(epub)
 	if err != nil {
 		return err
 	}
-	ps, err := statute.Parse(doc)
+	parse := statute.Parse
+	if t.ID == constitution.TitleID {
+		parse = statute.ParseConstitution
+	}
+	ps, err := parse(docs...)
 	if err != nil {
 		return err
 	}

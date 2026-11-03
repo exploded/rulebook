@@ -20,7 +20,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"strconv"
 	"time"
 
 	"rulebook/internal/db"
@@ -123,21 +122,19 @@ func write(ctx context.Context, conn *sql.DB, acts []register.Title, versions []
 		if err := q.DeleteAmendments(ctx, t.ID); err != nil {
 			return err
 		}
-		for _, v := range byTitle[t.ID] {
-			n, err := strconv.Atoi(v.CompilationNumber)
-			if err != nil {
-				return fmt.Errorf("%s compilation %q: %w", t.ID, v.CompilationNumber, err)
-			}
+		vs := byTitle[t.ID]
+		register.SortVersions(vs)
+		for seq, v := range vs {
 			p := sql.NullInt64{}
-			if pg, ok := pages[t.ID+"/"+v.CompilationNumber]; ok {
+			if pg, ok := pages[t.ID+"/"+v.CompilationNumber]; ok && v.CompilationNumber != "" {
 				p = sql.NullInt64{Int64: pg, Valid: true}
 				withPages++
 			}
 			if err := q.InsertVersion(ctx, db.InsertVersionParams{
-				TitleID: t.ID, CompilationNumber: int64(n), RegisterID: v.RegisterID,
+				TitleID: t.ID, CompilationNumber: v.CompilationNumber, Seq: int64(seq), RegisterID: v.RegisterID,
 				StartDate: register.Date(v.Start), EndDate: register.Date(v.End), IsLatest: b2i(v.IsLatest), Pages: p,
 			}); err != nil {
-				return fmt.Errorf("%s compilation %d: %w", t.ID, n, err)
+				return fmt.Errorf("%s version %d: %w", t.ID, seq, err)
 			}
 			nVersions++
 			for _, r := range v.Reasons {
@@ -145,7 +142,7 @@ func write(ctx context.Context, conn *sql.DB, acts []register.Title, versions []
 					continue
 				}
 				if err := q.InsertAmendment(ctx, db.InsertAmendmentParams{
-					TitleID: t.ID, CompilationNumber: int64(n), Affect: r.Affect,
+					TitleID: t.ID, Seq: int64(seq), Affect: r.Affect,
 					ByTitleID: r.AffectedByTitle.TitleID, ByName: r.AffectedByTitle.Name, ByProvisions: r.AffectedByTitle.Provisions,
 				}); err != nil {
 					return err

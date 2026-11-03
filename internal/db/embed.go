@@ -19,7 +19,7 @@ var addedColumns = []struct{ table, column, decl string }{
 	{"title", "ended_on", "TEXT NOT NULL DEFAULT ''"},
 	{"title", "ended_by", "TEXT NOT NULL DEFAULT ''"},
 	{"title", "ended_by_name", "TEXT NOT NULL DEFAULT ''"},
-	{"version", "pages", "INTEGER"},
+	{"act_summary", "portfolios", "TEXT NOT NULL DEFAULT ''"},
 }
 
 // Open opens (creating if needed) the SQLite database at path and applies the schema.
@@ -27,6 +27,10 @@ func Open(path string) (*sql.DB, error) {
 	conn, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
 	if err != nil {
 		return nil, err
+	}
+	if err := retype(conn); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("retype: %w", err)
 	}
 	if err := addColumns(conn); err != nil {
 		conn.Close()
@@ -37,6 +41,19 @@ func Open(path string) (*sql.DB, error) {
 		return nil, fmt.Errorf("apply schema: %w", err)
 	}
 	return conn, nil
+}
+
+// retype drops version and amendment if they are still keyed by compilation
+// number, which some versions lack, so the schema recreates them keyed by
+// seq. The loaders refill both from their cached responses.
+func retype(conn *sql.DB) error {
+	var cols, seq int
+	err := conn.QueryRow("SELECT COUNT(*), COUNT(CASE WHEN name = 'seq' THEN 1 END) FROM pragma_table_info('version')").Scan(&cols, &seq)
+	if err != nil || cols == 0 || seq > 0 {
+		return err
+	}
+	_, err = conn.Exec("DROP TABLE IF EXISTS amendment; DROP TABLE IF EXISTS version")
+	return err
 }
 
 // addColumns adds each of addedColumns to its table if the table exists

@@ -11,6 +11,7 @@
   <label><span>Status</span><select name="status">{{range .StatusOptions}}<option value="{{.Value}}"{{if eq .Value $.Filter.Status}} selected{{end}}>{{.Label}}</option>{{end}}</select></label>
   <label><span>Kind</span><select name="kind">{{range .KindOptions}}<option value="{{.Value}}"{{if eq .Value $.Filter.Kind}} selected{{end}}>{{.Label}}</option>{{end}}</select></label>
   <label><span>Made under</span><select name="side">{{range .SideOptions}}<option value="{{.Value}}"{{if eq .Value $.Filter.Side}} selected{{end}}>{{.Label}}</option>{{end}}</select></label>
+  {{if .PortfolioOptions}}<label><span>Portfolio</span><select name="portfolio">{{range .PortfolioOptions}}<option value="{{.Value}}"{{if eq .Value $.Filter.Portfolio}} selected{{end}}>{{.Label}}</option>{{end}}</select></label>{{end}}
   <label><span>Sort by</span><select name="sort">{{range .Sorts}}<option value="{{.Value}}"{{if eq .Value $.Filter.Sort}} selected{{end}}>{{.Label}}</option>{{end}}</select></label>
   <noscript><button type="submit">Show</button></noscript>
 </form>

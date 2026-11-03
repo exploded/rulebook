@@ -52,3 +52,17 @@
 </svg>
 </div>
 {{end}}
+
+{{/* treemap draws .Tiles from chart.Treemap: each tile links to its URL
+   and carries its tooltip. */}}
+{{define "treemap"}}
+<div class="treemap" role="list">
+  {{range .}}
+  <a role="listitem" class="tile t-flat{{if .Label}} labelled{{end}}" href="{{.URL}}"
+     style="left:{{pctCSS .X}};top:{{pctCSS .Y}};width:{{pctCSS .W}};height:{{pctCSS .H}}"
+     data-tip="{{.Tip}}" aria-label="{{.Name}}: {{f1 .Share}}% of pages in force">
+    {{if .Label}}<span class="tile-name">{{.Name}}</span><span class="tile-value">{{f1 .Share}}%</span>{{end}}
+  </a>
+  {{end}}
+</div>
+{{end}}

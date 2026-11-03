@@ -184,7 +184,7 @@ func (h *Handler) constitutionData(ctx context.Context) (constitutionPage, error
 	for _, v := range vs {
 		var va []db.Amendment
 		for _, a := range as {
-			if a.CompilationNumber == v.CompilationNumber {
+			if a.Seq == v.Seq {
 				va = append(va, a)
 			}
 		}
