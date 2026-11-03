@@ -1,0 +1,22 @@
+{{define "crumbs"}}{{if .}}<nav class="crumbs" aria-label="Breadcrumb">{{range $i, $c := .}}{{if $i}} / {{end}}<a href="{{$c.URL}}">{{$c.Name}}</a>{{end}}</nav>{{end}}{{end}}
+
+{{/* The Constitution drawn as one tile per section, each as wide as its
+     word count, grouped by chapter. Sections a referendum changed carry an
+     accent edge. */}}
+{{define "cmap"}}
+<figure class="cmap-figure">
+  {{range .Chapters}}
+  <div class="cmap-chapter">
+    <p class="cmap-head">{{if .Number}}<strong>Chapter {{.Number}}</strong> {{end}}{{.Title}} <span class="muted">· {{count .Words}} words</span></p>
+    <div class="cmap">
+      {{range .Tiles}}{{if .Repealed}}<span class="sec repealed" style="flex: 30 1 30px" data-tip="{{.Label}}|Repealed by the {{range .Changes}}{{.Year}} referendum ({{.Subject}}){{end}}">{{trimS .Label}}</span>{{else}}<a class="sec{{if .Changes}} changed{{end}}" href="/constitution/{{.Ref}}" style="flex: {{.Words}} 1 {{basis .Words}}px" data-tip="{{.Label}} {{.Heading}}|{{count .Words}} words{{range .Changes}}|Changed by the {{.Year}} referendum ({{.Subject}}){{end}}">{{trimS .Label}}</a>{{end}}{{end}}
+    </div>
+  </div>
+  {{end}}
+  <figcaption class="legend">
+    <span><span class="sw sw-sec"></span>Section, sized by its words</span>
+    <span><span class="sw sw-changed"></span>Changed by a referendum</span>
+    <span><span class="sw sw-repealed"></span>Repealed</span>
+  </figcaption>
+</figure>
+{{end}}

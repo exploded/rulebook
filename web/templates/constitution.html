@@ -1,0 +1,46 @@
+{{define "title"}}The Constitution{{end}}
+{{define "description"}}The Australian Constitution section by section: its size, its 40 heads of legislative power, and the 8 changes Australians have approved since 1901.{{end}}
+
+{{define "content"}}
+{{template "crumbs" .Crumbs}}
+<p class="kicker">The Constitution</p>
+<h1>The Constitution</h1>
+<p class="lede">The Commonwealth of Australia Constitution Act was passed by the British Parliament in 1900 and took effect on 1 January 1901. Its ninth clause holds the Constitution: {{.Sections}} sections in 8 chapters, and a schedule. Only the people can change it, by a referendum under section 128.</p>
+
+<dl class="stats">
+  <div><dt>Words in the Constitution</dt><dd>{{count .Words}}</dd></div>
+  <div><dt>Heads of power in s 51</dt><dd>{{len .Heads}}</dd></div>
+  <div><dt>Referendums carried</dt><dd>{{.Carried}} <span class="small muted">of {{.Referendums}}</span></dd></div>
+  <div><dt>Compilations since 1901</dt><dd>{{len .Versions}}</dd></div>
+</dl>
+
+<h2>Section by section</h2>
+<p class="muted">Each tile is a section, as wide as its word count. The covering clauses of the Act around it add {{count .CoveringWords}} words: <a href="/constitution/c1">read them</a>.</p>
+{{template "cmap" .}}
+
+<h2 id="powers">What the Parliament may make laws about</h2>
+<p>Section 51 lists the subjects on which the Commonwealth Parliament may make laws. Anything not listed here, or given to the Commonwealth elsewhere in the Constitution, stays with the States. The High Court decides how far each head of power reaches.</p>
+<ol class="heads">
+  {{range .Heads}}
+  <li id="{{.Number}}"><a class="head-num" href="/constitution/s51#{{.Number}}">({{.Number}})</a> <span>{{.Text}}</span>{{range .Changes}} <span class="badge badge-changed">changed by the {{.Year}} referendum</span>{{end}}</li>
+  {{end}}
+</ol>
+
+<h2 id="history">How the text has changed</h2>
+<p>The Register keeps a compilation of the Constitution for each period its text was in force. Each change came from a Constitution Alteration Act approved at a referendum.</p>
+<div class="scroll">
+<table class="data">
+  <thead><tr><th>Compilation</th><th>In force</th><th>Changed by</th></tr></thead>
+  <tbody>
+    {{range .Versions}}
+    <tr>
+      <td class="num">{{.CompilationNumber}}</td>
+      <td class="date">{{date .StartDate}} – {{if .EndDate}}{{date .EndDate}}{{else}}today{{end}}</td>
+      <td>{{if .Amendments}}{{range $i, $a := .Amendments}}{{if $i}}<br>{{end}}<a href="https://www.legislation.gov.au/{{$a.ByTitleID}}/latest/text">{{$a.ByName}}</a>{{end}}{{else}}<span class="muted">The Constitution as enacted</span>{{end}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+</div>
+<p><a href="/referendums">See all {{.Referendums}} referendums, including the {{add .Referendums (neg .Carried)}} that failed</a>.</p>
+{{end}}

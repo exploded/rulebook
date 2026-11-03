@@ -1,0 +1,56 @@
+{{define "title"}}Referendums{{end}}
+{{define "description"}}All {{len .Rows}} proposals to change the Australian Constitution since 1901: {{.Carried}} carried. National and state results for each.{{end}}
+
+{{define "content"}}
+{{template "crumbs" .Crumbs}}
+<p class="kicker">The Constitution</p>
+<h1>Referendums</h1>
+<p class="lede">The Constitution changes only when a majority of voters across the nation, and a majority in at least four of the six States, approve it (section 128). Of {{len .Rows}} proposals since 1901, {{.Carried}} were carried. {{.Majority}} more won a national majority but failed in the States.</p>
+
+<figure class="chart-figure">
+  <svg class="chart" viewBox="0 0 {{.Chart.W}} {{.Chart.H}}" role="img" aria-labelledby="ref-chart-title">
+    <title id="ref-chart-title">National yes vote for each referendum, 1906 to 2023. {{.Carried}} of {{len .Rows}} carried.</title>
+    {{range .Chart.YTicks}}
+    <line class="grid" x1="{{$.Chart.Left}}" x2="{{$.Chart.Right}}" y1="{{.Pos}}" y2="{{.Pos}}"/>
+    <text class="axis" x="{{sub $.Chart.Left 6}}" y="{{.Pos}}" text-anchor="end" dominant-baseline="middle">{{.Label}}</text>
+    {{end}}
+    <line class="majority" x1="{{.Chart.Left}}" x2="{{.Chart.Right}}" y1="{{.Chart.Majority}}" y2="{{.Chart.Majority}}"/>
+    <text class="axis majority-label" x="{{.Chart.Right}}" y="{{sub .Chart.Majority 6}}" text-anchor="end">Majority</text>
+    {{range .Chart.XTicks}}
+    <text class="axis" x="{{.Pos}}" y="{{add2 $.Chart.Bottom 18}}" text-anchor="middle">{{.Label}}</text>
+    {{end}}
+    {{range .Chart.Points}}
+    <a href="#r{{.Number}}" data-tip="{{.Tip}}">
+      <circle class="hit" cx="{{.X}}" cy="{{.Y}}" r="11"/>
+      <circle class="dot{{if .Carried}} carried{{end}}" cx="{{.X}}" cy="{{.Y}}" r="5.5"/>
+    </a>
+    {{end}}
+  </svg>
+  <figcaption class="legend">
+    <span class="legend-title">National yes vote</span>
+    <span><svg class="key" viewBox="0 0 12 12" aria-hidden="true"><circle class="dot carried" cx="6" cy="6" r="4.5"/></svg>Carried</span>
+    <span><svg class="key" viewBox="0 0 12 12" aria-hidden="true"><circle class="dot" cx="6" cy="6" r="4.5"/></svg>Not carried</span>
+    <a class="pager-csv" href="/referendums.csv">Download CSV</a>
+  </figcaption>
+</figure>
+
+<h2>Every proposal</h2>
+<p class="muted small">State figures are the percentage of formal votes for yes. Shaded cells had a majority for yes. Territory votes count in the national total only, and only since 1977.</p>
+<div class="scroll">
+<table class="data referendums">
+  <thead><tr><th class="num">No.</th><th>Date</th><th>Proposal</th><th class="num">Yes</th>{{range (index .Rows 0).States}}<th class="num">{{.Name}}</th>{{end}}<th>Result</th></tr></thead>
+  <tbody>
+    {{range .Rows}}
+    <tr id="r{{.Number}}">
+      <td class="num">{{.Number}}</td>
+      <td class="date">{{date .HeldOn}}</td>
+      <th>{{.Subject}}{{if .SectionsChanged}}<span class="row-note">Changed {{.SectionsChanged}}</span>{{end}}</th>
+      <td class="num{{if gt .YesPct 50.0}} yes{{end}}">{{f2 .YesPct}}</td>
+      {{range .States}}<td class="num{{if gt .Pct 50.0}} yes{{end}}">{{f1 .Pct}}</td>{{end}}
+      <td>{{if eq .Carried 1}}<strong>Carried</strong>{{else}}Not carried{{end}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+</div>
+{{end}}

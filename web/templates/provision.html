@@ -1,0 +1,21 @@
+{{define "title"}}{{.Label}} {{.Provision.Heading}} · The Constitution{{end}}
+{{define "description"}}{{.Label}} of the Australian Constitution: {{.Provision.Heading}}.{{end}}
+
+{{define "content"}}
+{{template "crumbs" .Crumbs}}
+<p class="kicker">{{if .Provision.Chapter}}Chapter {{.Provision.Chapter}} · {{.Provision.ChapterTitle}}{{if .Provision.Part}} · Part {{.Provision.Part}} · {{.Provision.PartTitle}}{{end}}{{else if eq .Provision.Kind "covering"}}Covering clauses of the Constitution Act{{else}}The Constitution{{end}}</p>
+<h1>{{.Label}}{{with .Provision.Heading}} <span class="h1-sub">{{.}}</span>{{end}}</h1>
+
+<p class="muted small">{{count .Provision.Words}} words{{range .Changes}} · <span class="badge badge-changed">Changed by the {{.Year}} referendum ({{.Subject}})</span>{{end}}</p>
+
+<div class="provision-text">
+  {{range .Lines}}<p{{if .ID}} id="{{.ID}}" class="para"{{end}}>{{.Text}}</p>
+  {{end}}
+</div>
+
+<nav class="prevnext" aria-label="Sections">
+  {{with .Prev}}<a class="prev" href="/constitution/{{.Ref}}"><span class="muted small">Previous</span><br>{{.Label}} {{.Heading}}</a>{{else}}<span></span>{{end}}
+  {{with .Next}}<a class="next" href="/constitution/{{.Ref}}"><span class="muted small">Next</span><br>{{.Label}} {{.Heading}}</a>{{end}}
+</nav>
+<p class="small muted">Text from the latest compilation on the <a href="https://www.legislation.gov.au/C2004Q00685/latest/text">Federal Register of Legislation</a>.</p>
+{{end}}

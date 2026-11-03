@@ -1,0 +1,41 @@
+{{define "layout"}}<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="htmx-config" content='{"includeIndicatorStyles": false}'>
+<title>{{template "title" .}} · Rulebook</title>
+<meta name="description" content="{{block "description" .}}Australia's federal laws, measured: the Constitution, every Act of Parliament and how they have grown, changed and been tested.{{end}}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Rulebook">
+<meta property="og:title" content="{{template "title" .}} · Rulebook">
+<meta property="og:description" content="{{template "description" .}}">
+<link rel="preload" href="/static/fonts/source-serif-4-v5-latin-wght.woff2?v=5" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/fonts/ibm-plex-sans-v5-latin-400.woff2?v=5" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="{{static "styles.css"}}">
+<link rel="icon" href="{{static "favicon.svg"}}" type="image/svg+xml">
+</head>
+<body>
+<header class="masthead">
+  <div class="wrap masthead-inner">
+    <a class="brand" href="/">Rulebook</a>
+    <nav aria-label="Site">
+      <a href="/constitution">The Constitution</a>
+      <a href="/referendums">Referendums</a>
+      <a href="/methodology">Methodology</a>
+      <a href="/about">About</a>
+    </nav>
+  </div>
+</header>
+<main class="wrap">
+{{template "content" .}}
+</main>
+<footer class="wrap site-footer">
+  <p>Legislation text and history are from the <a href="https://www.legislation.gov.au/">Federal Register of Legislation</a>, used under CC BY 4.0. Referendum results are from the Australian Electoral Commission.
+  <a href="/sources">Sources and data loads</a> · <a href="/methodology">How we measure</a> · <a href="/about#corrections">Report an error</a>.</p>
+</footer>
+<div id="tip" class="tip" role="tooltip" hidden></div>
+<script src="{{static "htmx.min.js"}}"></script>
+<script src="{{static "app.js"}}"></script>
+</body>
+</html>{{end}}

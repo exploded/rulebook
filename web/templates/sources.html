@@ -1,0 +1,22 @@
+{{define "title"}}Sources and data loads{{end}}
+
+{{define "content"}}
+<p class="kicker">About</p>
+<h1>Sources and data loads</h1>
+<p class="lede">Every load into this site's database, newest first, with the file it read and that file's SHA-256 fingerprint.</p>
+<div class="scroll">
+<table class="data">
+  <thead><tr><th>Loaded</th><th>Source</th><th>Result</th><th>SHA-256</th></tr></thead>
+  <tbody>
+    {{range .Runs}}
+    <tr>
+      <td class="date">{{.FinishedAt.Format "2 Jan 2006"}}</td>
+      <th><a href="{{.Url}}">{{.Title}}</a><span class="row-note">{{.Publisher}} · {{.FileName}}</span></th>
+      <td>{{.Notes}}</td>
+      <td class="mono small" title="{{.Sha256}}">{{slice .Sha256 0 12}}…</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+</div>
+{{end}}
