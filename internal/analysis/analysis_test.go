@@ -52,6 +52,33 @@ func TestPenaltyOnFollowingLines(t *testing.T) {
 	}
 }
 
+// Forms from the Customs Act 1901, the Excise Act 1901, the Crimes Act 1914
+// and the Commonwealth Electoral Act 1918.
+func TestPenaltyForms(t *testing.T) {
+	cases := []struct {
+		lines         []string
+		months, units int
+	}{
+		{[]string{"Penalty: 1 penalty unit."}, 0, 1},
+		{[]string{"Penalty: One penalty unit."}, 0, 1},
+		{[]string{"Penalty: Imprisonment for five years."}, 60, 0},
+		{[]string{"Penalty: Five years’ imprisonment."}, 60, 0},
+		{[]string{"Penalty: 2 years imprisonment or the greater of:", "(a) 500 penalty units; and", "(b) 5 times the amount of duty."}, 24, 500},
+		{[]string{"Civil penalty:", "The higher of the following amounts:", "(a) 200 penalty units;", "(b) 3 times that amount."}, 0, 200},
+		{[]string{"Penalty for contravention of this subsection: 60 penalty units."}, 0, 60},
+	}
+	for _, c := range cases {
+		got := Analyse(c.lines)
+		if len(got.Penalties) != 1 {
+			t.Errorf("%q: penalties = %+v", c.lines[0], got.Penalties)
+			continue
+		}
+		if p := got.Penalties[0]; p.Months != c.months || p.Units != c.units {
+			t.Errorf("%q: months %d units %d, want %d and %d", c.lines[0], p.Months, p.Units, c.months, c.units)
+		}
+	}
+}
+
 func TestLife(t *testing.T) {
 	c := Analyse([]string{"Penalty: Imprisonment for life."})
 	if len(c.Penalties) != 1 || !c.Penalties[0].Life {

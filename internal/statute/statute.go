@@ -152,7 +152,8 @@ func parse(docs [][]byte, covering bool) ([]Provision, error) {
 		started := false
 	volume:
 		for _, p := range paras {
-			if p.class == "ENotesHeading1" {
+			if p.class == "ENotesHeading1" || p.class == "NotesSection" {
+				// The endnotes, or in older compilations the notes.
 				break volume
 			}
 			if !started {
@@ -224,14 +225,21 @@ func parse(docs [][]byte, covering bool) ([]Provision, error) {
 	return out, nil
 }
 
+// noteRef is a pointer to the notes in an older compilation's heading:
+// "Short title [see Note 1]".
+var noteRef = regexp.MustCompile(`\s*\[see Notes? [^\]]*\]`)
+
 func trimHeading(s string) string {
+	s = noteRef.ReplaceAllString(s, "")
 	return strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(s), "."))
 }
 
 type para struct{ class, text string }
 
 // paragraphs returns each <p> in the document with its class and its text,
-// whitespace collapsed.
+// whitespace collapsed. Compilations prepared before about 2005 mark
+// headings as <h1> to <h6> with no class instead; those come back with the
+// style the newer ones use, so <h5> is ActHead5.
 func paragraphs(doc []byte) ([]para, error) {
 	z := html.NewTokenizer(bytes.NewReader(doc))
 	var (
@@ -240,6 +248,9 @@ func paragraphs(doc []byte) ([]para, error) {
 		cls   string
 		text  strings.Builder
 	)
+	block := func(name string) bool {
+		return name == "p" || len(name) == 2 && name[0] == 'h' && name[1] >= '1' && name[1] <= '6'
+	}
 	for {
 		switch z.Next() {
 		case html.ErrorToken:
@@ -248,8 +259,9 @@ func paragraphs(doc []byte) ([]para, error) {
 			}
 			return nil, z.Err()
 		case html.StartTagToken:
-			name, hasAttr := z.TagName()
-			if string(name) != "p" {
+			n, hasAttr := z.TagName()
+			name := string(n)
+			if !block(name) {
 				continue
 			}
 			if depth == 0 {
@@ -262,10 +274,13 @@ func paragraphs(doc []byte) ([]para, error) {
 						cls = string(v)
 					}
 				}
+				if cls == "" && name[0] == 'h' {
+					cls = "ActHead" + name[1:]
+				}
 			}
 			depth++
 		case html.EndTagToken:
-			if name, _ := z.TagName(); string(name) == "p" && depth > 0 {
+			if name, _ := z.TagName(); block(string(name)) && depth > 0 {
 				depth--
 				if depth == 0 {
 					out = append(out, para{cls, clean(text.String())})

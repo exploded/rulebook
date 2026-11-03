@@ -43,11 +43,21 @@ type Counts struct {
 	HenryVIII         int // instruments that may modify the Act
 }
 
+// numbers are the counts older Acts write in words ("Imprisonment for five
+// years", "One penalty unit").
+var numbers = map[string]int{
+	"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
+	"nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "fourteen": 14, "fifteen": 15,
+	"twenty": 20, "twenty-five": 25, "thirty": 30, "fifty": 50, "sixty": 60, "hundred": 100,
+}
+
+const num = `(\d[\d,]*|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fourteen|fifteen|twenty-five|twenty|thirty|fifty|sixty|hundred)`
+
 var (
 	noteRE     = regexp.MustCompile(`^(Note|Notes|Example|Examples)( \d+)?:`)
 	penaltyRE  = regexp.MustCompile(`^(Civil penalty|Penalty)( [^:]{1,80})?:\s*(.*)$`)
-	prisonRE   = regexp.MustCompile(`(?i)imprisonment for (life|(\d+) (years?|months?))`)
-	unitsRE    = regexp.MustCompile(`(?i)(\d[\d,]*) penalty units`)
+	prisonRE   = regexp.MustCompile(`(?i)imprisonment for (life|` + num + ` (years?|months?))|\b` + num + ` (years?|months?)['\x{2019}]? imprisonment`)
+	unitsRE    = regexp.MustCompile(`(?i)\b` + num + ` penalty units?\b`)
 	strictRE   = regexp.MustCompile(`(?i)(offences? of strict liability|strict liability applies)`)
 	absoluteRE = regexp.MustCompile(`(?i)(offences? of absolute liability|absolute liability applies)`)
 	regsRE     = regexp.MustCompile(`may make regulations`)
@@ -68,12 +78,17 @@ func Analyse(lines []string) Counts {
 			continue
 		}
 		if m := penaltyRE.FindStringSubmatch(l); m != nil {
-			text := m[3]
-			if text == "" {
+			text, j := m[3], i+1
+			if text == "" && j < len(lines) && !strings.HasPrefix(lines[j], "(") && !noteRE.MatchString(lines[j]) {
+				// "Civil penalty:" then "The higher of the following
+				// amounts:" on the next paragraph.
+				text, j = lines[j], j+1
+			}
+			if text == "" || strings.HasSuffix(text, ":") {
 				// A penalty that varies ("Penalty:" then "(a) for an
 				// individual—...") continues on the next paragraphs.
-				for j := i + 1; j < len(lines) && j <= i+4 && strings.HasPrefix(lines[j], "("); j++ {
-					text = strings.TrimSpace(text + " " + lines[j])
+				for k := j; k < len(lines) && k < j+4 && strings.HasPrefix(lines[k], "("); k++ {
+					text = strings.TrimSpace(text + " " + lines[k])
 				}
 			}
 			c.Penalties = append(c.Penalties, parsePenalty(m[1] == "Civil penalty", text))
@@ -102,15 +117,28 @@ func parsePenalty(civil bool, text string) Penalty {
 			p.Life = true
 			continue
 		}
-		n, _ := strconv.Atoi(m[2])
-		if strings.HasPrefix(strings.ToLower(m[3]), "year") {
+		// "imprisonment for 2 years" fills m[2] and m[3]; "2 years
+		// imprisonment" fills m[4] and m[5].
+		n, unit := count(m[2]), m[3]
+		if m[4] != "" {
+			n, unit = count(m[4]), m[5]
+		}
+		if strings.HasPrefix(strings.ToLower(unit), "year") {
 			n *= 12
 		}
 		p.Months = max(p.Months, n)
 	}
 	for _, m := range unitsRE.FindAllStringSubmatch(text, -1) {
-		n, _ := strconv.Atoi(strings.ReplaceAll(m[1], ",", ""))
-		p.Units = max(p.Units, n)
+		p.Units = max(p.Units, count(m[1]))
 	}
 	return p
+}
+
+// count reads a number written in digits or in words.
+func count(s string) int {
+	if n, ok := numbers[strings.ToLower(s)]; ok {
+		return n
+	}
+	n, _ := strconv.Atoi(strings.ReplaceAll(s, ",", ""))
+	return n
 }

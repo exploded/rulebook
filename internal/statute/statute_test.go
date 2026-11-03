@@ -121,3 +121,37 @@ func TestParseActVolumes(t *testing.T) {
 		t.Errorf("clause's schedule = %q", last.PartTitle)
 	}
 }
+
+// Older compilations, like the Surplus Revenue Act 1908's of 1999, mark
+// headings as bare <h1> to <h6> and start their notes with NotesSection.
+func TestParseOlderCompilation(t *testing.T) {
+	doc := []byte(`<html><body>
+<p class="ShortT">Surplus Revenue Act 1908</p>
+<p class="TOC5"><span>1</span><span>&#xa0;</span><span>Short title [see Note 1]</span></p>
+<p class="LongT">An Act relating to the payment to the several States of the Surplus Revenue</p>
+<h5 id="navPoint_2"><a><span class="CharSectno">1</span><span>&#xa0; </span><span>Short title </span><span>[</span><span>see</span><span> Note 1]</span></a></h5>
+<p class="subsection">This Act may be cited as the Surplus Revenue Act 1908.</p>
+<h5 id="navPoint_3"><a><span class="CharSectno">2</span><span>&#xa0; </span><span>Commencement</span></a></h5>
+<p class="subsection">This Act shall commence on a day to be fixed by proclamation.</p>
+<h1 id="navPoint_5"><a><span class="CharChapNo">The Schedule</span></a></h1>
+<p style="margin-top:6pt">AGREEMENT made the second day of September.</p>
+<p class="NotesSection">Notes to the Surplus Revenue Act 1908</p>
+<p class="TableOfActs1">Surplus Revenue Act 1910</p>
+</body></html>`)
+	ps, err := Parse(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, p := range ps {
+		got = append(got, p.Kind+" "+p.Number+" "+p.Heading+" ("+strings.Join(p.Body, " / ")+")")
+	}
+	want := []string{
+		"section 1 Short title (This Act may be cited as the Surplus Revenue Act 1908.)",
+		"section 2 Commencement (This Act shall commence on a day to be fixed by proclamation.)",
+		"schedule  The Schedule (AGREEMENT made the second day of September.)",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
