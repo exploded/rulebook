@@ -389,6 +389,12 @@ table.referendums td.yes { background: color-mix(in oklab, var(--meter) 14%, tra
 table.referendums tbody th { min-width: 180px; }
 table.referendums tr:target { outline: 2px solid var(--meter); }
 @media (max-width: 640px) {
-  .chart .axis { font-size: 20px; }
+  /* Below 640px the chart scrolls sideways rather than shrinking past
+     legibility; labels and dots grow to match. */
+  .chart-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .chart { min-width: 640px; }
+  .chart .axis { font-size: 18px; }
+  .chart .dot { r: 8px; }
+  .chart .hit { r: 16px; }
   .provision-text { font-size: 16.5px; }
 }

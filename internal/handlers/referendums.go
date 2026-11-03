@@ -51,7 +51,8 @@ func chartY(pct float64) float64 {
 
 func newReferendumChart(rs []db.Referendum) referendumChart {
 	c := referendumChart{W: chartW, H: chartH, Left: chartL, Right: chartW - chartR, Top: chartT, Bottom: chartH - chartB, Majority: chartY(50)}
-	for y := chartFromYear; y <= chartToYear; y += 20 {
+	// Ticks start at 1920: a 1900 label would sit on top of the 0% label.
+	for y := chartFromYear + 20; y <= chartToYear; y += 20 {
 		c.XTicks = append(c.XTicks, tick{chartX(strconv.Itoa(y) + "-01-01"), strconv.Itoa(y)})
 	}
 	for _, p := range []float64{0, 25, 50, 75, 100} {

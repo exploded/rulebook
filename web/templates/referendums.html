@@ -8,6 +8,7 @@
 <p class="lede">The Constitution changes only when a majority of voters across the nation, and a majority in at least four of the six States, approve it (section 128). Of {{len .Rows}} proposals since 1901, {{.Carried}} were carried. {{.Majority}} more won a national majority but failed in the States.</p>
 
 <figure class="chart-figure">
+  <div class="chart-scroll">
   <svg class="chart" viewBox="0 0 {{.Chart.W}} {{.Chart.H}}" role="img" aria-labelledby="ref-chart-title">
     <title id="ref-chart-title">National yes vote for each referendum, 1906 to 2023. {{.Carried}} of {{len .Rows}} carried.</title>
     {{range .Chart.YTicks}}
@@ -26,6 +27,7 @@
     </a>
     {{end}}
   </svg>
+  </div>
   <figcaption class="legend">
     <span class="legend-title">National yes vote</span>
     <span><svg class="key" viewBox="0 0 12 12" aria-hidden="true"><circle class="dot carried" cx="6" cy="6" r="4.5"/></svg>Carried</span>
