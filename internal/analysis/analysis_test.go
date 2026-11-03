@@ -66,6 +66,13 @@ func TestPenaltyForms(t *testing.T) {
 		{[]string{"Penalty: 2 years imprisonment or the greater of:", "(a) 500 penalty units; and", "(b) 5 times the amount of duty."}, 24, 500},
 		{[]string{"Civil penalty:", "The higher of the following amounts:", "(a) 200 penalty units;", "(b) 3 times that amount."}, 0, 200},
 		{[]string{"Penalty for contravention of this subsection: 60 penalty units."}, 0, 60},
+		{[]string{"(13) An operator of a ship or aircraft who contravenes this section commits an offence punishable, on conviction, by a penalty not exceeding 60 penalty units."}, 0, 60},
+		{[]string{"commits an offence and shall be liable, upon summary conviction, to a fine not exceeding 5 penalty units or to imprisonment for any period not exceeding 2 years."}, 24, 5},
+		{[]string{"(4) An offence under subsection (1) is punishable on conviction by imprisonment for not more than 10 years or a fine not exceeding the amount worked out under subsection (5), or both."}, 120, 0},
+	}
+	// Only the mode of trial: the penalty is elsewhere.
+	if c := Analyse([]string{"(3) An offence against this section is punishable upon summary conviction."}); len(c.Penalties) != 0 {
+		t.Errorf("mode of trial counted as a penalty: %+v", c.Penalties)
 	}
 	for _, c := range cases {
 		got := Analyse(c.lines)

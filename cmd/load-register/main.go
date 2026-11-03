@@ -109,12 +109,12 @@ func load(ctx context.Context, conn *sql.DB, c *register.Client, id string, with
 				continue
 			}
 			if err := q.InsertAmendment(ctx, db.InsertAmendmentParams{
-				TitleID:           id,
-				Seq:               int64(seq),
-				Affect:            r.Affect,
-				ByTitleID:         r.AffectedByTitle.TitleID,
-				ByName:            r.AffectedByTitle.Name,
-				ByProvisions:      r.AffectedByTitle.Provisions,
+				TitleID:      id,
+				Seq:          int64(seq),
+				Affect:       r.Affect,
+				ByTitleID:    r.AffectedByTitle.TitleID,
+				ByName:       r.AffectedByTitle.Name,
+				ByProvisions: r.AffectedByTitle.Provisions,
 			}); err != nil {
 				return err
 			}

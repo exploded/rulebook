@@ -6,6 +6,11 @@
 //   - An offence is a penalty at the foot of a section or subsection
 //     ("Penalty: Imprisonment for 2 years."). Section 4D of the Crimes Act
 //     1914 makes such a penalty mean that a contravention is an offence.
+//     Older drafting states the punishment in the text instead ("commits
+//     an offence punishable, on conviction, by a penalty not exceeding 60
+//     penalty units"); a line in which a person commits, or is guilty of,
+//     an offence that is punishable, or for which they are liable, counts
+//     as one too.
 //   - A civil penalty provision ends "Civil penalty: ...".
 //   - Strict and absolute liability are declared in the text ("An offence
 //     against subsection (1) is an offence of strict liability."); the
@@ -54,9 +59,16 @@ var numbers = map[string]int{
 const num = `(\d[\d,]*|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fourteen|fifteen|twenty-five|twenty|thirty|fifty|sixty|hundred)`
 
 var (
-	noteRE     = regexp.MustCompile(`^(Note|Notes|Example|Examples)( \d+)?:`)
-	penaltyRE  = regexp.MustCompile(`^(Civil penalty|Penalty)( [^:]{1,80})?:\s*(.*)$`)
-	prisonRE   = regexp.MustCompile(`(?i)imprisonment for (life|` + num + ` (years?|months?))|\b` + num + ` (years?|months?)['\x{2019}]? imprisonment`)
+	noteRE    = regexp.MustCompile(`^(Note|Notes|Example|Examples)( \d+)?:`)
+	penaltyRE = regexp.MustCompile(`^(Civil penalty|Penalty)( [^:]{1,80})?:\s*(.*)$`)
+	// "commits an offence punishable ...", "is guilty of an offence and
+	// liable to ...", "An offence under subsection (1) is punishable on
+	// conviction by ...".
+	inlineRE = regexp.MustCompile(`(?i)\b(commits|is guilty of|shall be guilty of) an offen[cs]e\b[^.;:]{0,80}?\b(punishable|liable)\b` +
+		`|^(\(\w+\) )?An offen[cs]e (under|against) [^.;:]{0,80}? is punishable,? (on|upon) (summary )?conviction,? by\b`)
+	// "imprisonment for 2 years", "imprisonment for any period not
+	// exceeding 2 years", "2 years imprisonment".
+	prisonRE   = regexp.MustCompile(`(?i)imprisonment (?:for )?(life|(?:[a-z ]{0,30} )?` + num + ` (years?|months?))|\b` + num + ` (years?|months?)['\x{2019}]? imprisonment`)
 	unitsRE    = regexp.MustCompile(`(?i)\b` + num + ` penalty units?\b`)
 	strictRE   = regexp.MustCompile(`(?i)(offences? of strict liability|strict liability applies)`)
 	absoluteRE = regexp.MustCompile(`(?i)(offences? of absolute liability|absolute liability applies)`)
@@ -92,6 +104,16 @@ func Analyse(lines []string) Counts {
 				}
 			}
 			c.Penalties = append(c.Penalties, parsePenalty(m[1] == "Civil penalty", text))
+		} else if inlineRE.MatchString(l) {
+			text := l
+			if strings.HasSuffix(text, ":") {
+				// "commits an offence punishable upon conviction:" then
+				// "(a) if the offender is an individual—...".
+				for k := i + 1; k < len(lines) && k <= i+4 && strings.HasPrefix(lines[k], "("); k++ {
+					text += " " + lines[k]
+				}
+			}
+			c.Penalties = append(c.Penalties, parsePenalty(false, text))
 		}
 		if strictRE.MatchString(l) {
 			c.StrictLiability++
